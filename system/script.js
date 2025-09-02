@@ -1,6 +1,6 @@
 class MagicGameSystem {
     constructor() {
-        this.apiUrl = 'http://localhost:3000/api';
+        this.apiUrl = '/api';
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
         this.authToken = null; // Token agora vem via cookie
@@ -5185,4 +5185,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
+
 });
