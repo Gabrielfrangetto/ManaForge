@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // JWT Secret Key
@@ -1797,3 +1798,4 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`📱 Acesse: http://localhost:${PORT}`);
 });
+
