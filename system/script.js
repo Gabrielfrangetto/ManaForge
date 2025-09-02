@@ -1507,7 +1507,7 @@ class MagicGameSystem {
             previewElement.classList.add('show');
             
             // Usar URL completa para garantir que funcione
-            const url = `http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`;
+            const url = `/api/cards/search/${encodeURIComponent(cardName)}`;
             console.log('📡 URL da requisição:', url);
             
             const response = await fetch(url);
@@ -5187,3 +5187,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 });
+
