@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -11,7 +12,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // JWT Secret Key
-const JWT_SECRET = process.env.JWT_SECRET || 'sistema_magic_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não definido!");
+}
+
 
 // Rate limiting para login
 const loginLimiter = rateLimit({
@@ -200,8 +205,13 @@ function updatePlayerRanking(player, xpChange) {
 
 
 // Middleware
+// Configurar CORS origins baseado em variáveis de ambiente
+const corsOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Permitir localhost
+    origin: corsOrigins,
     credentials: true, // IMPORTANTE: Permitir cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -211,7 +221,7 @@ app.use(cookieParser());
 app.use(express.static('.'));
 
 // MongoDB Atlas Connection
-const MONGODB_URI = 'mongodb+srv://gfrangetto:wZHnhH3O33ZXFKv1@cluster0.ibfzdd5.mongodb.net/SistemaMagic?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/SistemaMagic';
 
 console.log('🔄 Tentando conectar ao MongoDB Atlas...');
 console.log('📍 URI:', MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://<username>:<password>@'));
@@ -1597,7 +1607,7 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
         const { achievementId, password, playerId } = req.body;
         
         // Verificar se a senha está correta
-        const correctPassword = 'X7!r@9wQ#tL2%zF8';
+        const correctPassword = process.env.SPECIAL_ACHIEVEMENT_PASSWORD || 'default_password';
         if (password !== correctPassword) {
             return res.status(400).json({ 
                 success: false, 
