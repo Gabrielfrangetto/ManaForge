@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -11,7 +12,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // JWT Secret Key
-const JWT_SECRET = process.env.JWT_SECRET || 'sistema_magic_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET não definido!");
+}
+
 
 // Rate limiting para login
 const loginLimiter = rateLimit({
@@ -200,8 +205,13 @@ function updatePlayerRanking(player, xpChange) {
 
 
 // Middleware
+// Configurar CORS origins baseado em variáveis de ambiente
+const corsOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',')
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Permitir localhost
+    origin: corsOrigins,
     credentials: true, // IMPORTANTE: Permitir cookies
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -211,7 +221,7 @@ app.use(cookieParser());
 app.use(express.static('.'));
 
 // MongoDB Atlas Connection
-const MONGODB_URI = 'mongodb+srv://gfrangetto:wZHnhH3O33ZXFKv1@cluster0.ibfzdd5.mongodb.net/SistemaMagic?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/SistemaMagic';
 
 console.log('🔄 Tentando conectar ao MongoDB Atlas...');
 console.log('📍 URI:', MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://<username>:<password>@'));
@@ -851,24 +861,73 @@ app.get('/api/cards/search/:name', async (req, res) => {
     }
 });
 
-async function getMultipleCardData(cardName) {
+async function getMultipleCardData(cardName, retryCount = 0) {
+    const maxRetries = 3;
+    const timeout = 10000; // 10 segundos
+    
+    console.log(`🔍 Buscando cartas para: "${cardName}" (tentativa ${retryCount + 1}/${maxRetries + 1})`);
+    
     try {
-        // Usar a API Scryfall com busca simples - funciona com termos parciais
-        const response = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(cardName)}`);
+        // Criar AbortController para timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        // Configurar headers com User-Agent
+        const headers = {
+            'User-Agent': 'ManaForge/1.0 (Magic Card Game System)',
+            'Accept': 'application/json'
+        };
+        
+        console.log(`📡 Fazendo requisição para Scryfall API...`);
+        const startTime = Date.now();
+        
+        // Fazer requisição com timeout e headers
+        const response = await fetch(
+            `https://api.scryfall.com/cards/search?q=${encodeURIComponent(cardName)}`,
+            {
+                signal: controller.signal,
+                headers: headers,
+                timeout: timeout
+            }
+        );
+        
+        clearTimeout(timeoutId);
+        const responseTime = Date.now() - startTime;
+        console.log(`⏱️ Tempo de resposta: ${responseTime}ms`);
         
         if (!response.ok) {
-            console.log('❌ Resposta da API Scryfall não OK:', response.status);
+            console.error(`❌ Resposta da API Scryfall não OK:`, {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+            
+            // Se for erro 429 (rate limit) ou 5xx, tentar novamente
+            if ((response.status === 429 || response.status >= 500) && retryCount < maxRetries) {
+                const delay = Math.pow(2, retryCount) * 1000; // Backoff exponencial
+                console.log(`⏳ Aguardando ${delay}ms antes de tentar novamente...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return getMultipleCardData(cardName, retryCount + 1);
+            }
+            
             return null;
         }
         
+        console.log(`✅ Resposta OK da API Scryfall (${response.status})`);
         const data = await response.json();
         console.log('📊 Total de cartas encontradas no Scryfall:', data.data?.length || 0);
         
         // A resposta vem em data.data
         const cards = data.data || [];
         
+        if (cards.length === 0) {
+            console.log('⚠️ Nenhuma carta encontrada para:', cardName);
+            return null;
+        }
+        
         // Processar até 10 cartas
-        return cards.slice(0, 10).map(card => ({
+        const processedCards = cards.slice(0, 10).map(card => ({
             name: card.name,
             scryfallId: card.id,
             imageUrl: card.image_uris?.normal || card.card_faces?.[0]?.image_uris?.normal,
@@ -878,8 +937,32 @@ async function getMultipleCardData(cardName) {
             rarity: card.rarity,
             setName: card.set_name
         }));
+        
+        console.log(`✨ Processadas ${processedCards.length} cartas com sucesso`);
+        return processedCards;
+        
     } catch (error) {
-        console.error('Erro ao buscar cartas na API Scryfall:', error);
+        console.error(`💥 Erro ao buscar cartas na API Scryfall (tentativa ${retryCount + 1}):`, {
+            message: error.message,
+            name: error.name,
+            stack: error.stack,
+            cardName: cardName
+        });
+        
+        // Se for erro de timeout ou rede e ainda temos tentativas
+        if (retryCount < maxRetries && 
+            (error.name === 'AbortError' || 
+             error.message.includes('fetch') || 
+             error.message.includes('network') ||
+             error.message.includes('timeout'))) {
+            
+            const delay = Math.pow(2, retryCount) * 1000; // Backoff exponencial
+            console.log(`🔄 Tentando novamente em ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return getMultipleCardData(cardName, retryCount + 1);
+        }
+        
+        console.error(`❌ Falha definitiva após ${retryCount + 1} tentativas`);
         return null;
     }
 }
@@ -1594,10 +1677,10 @@ app.post('/api/players/:playerId/featured-achievements', async (req, res) => {
 // Desbloquear achievement especial com senha
 app.post('/api/achievements/unlock-special', async (req, res) => {
     try {
-        const { achievementId, password, playerId } = req.body;
+        const { achievementId, password, playerId, customUnlockedAt } = req.body;
         
         // Verificar se a senha está correta
-        const correctPassword = 'X7!r@9wQ#tL2%zF8';
+        const correctPassword = process.env.SPECIAL_ACHIEVEMENT_PASSWORD || 'default_password';
         if (password !== correctPassword) {
             return res.status(400).json({ 
                 success: false, 
@@ -1667,7 +1750,7 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
             progress: 1,
             maxProgress: 1,
             xpReward: achievementData.xpReward,
-            unlockedAt: new Date()
+            unlockedAt: customUnlockedAt ? new Date(customUnlockedAt) : new Date()
         });
         
         res.json({ 

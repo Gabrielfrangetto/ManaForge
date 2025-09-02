@@ -1,6 +1,9 @@
 class MagicGameSystem {
     constructor() {
-        this.apiUrl = 'http://localhost:3000/api';
+        // Detectar automaticamente se está em produção ou desenvolvimento
+        this.apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3000/api'
+            : `${window.location.origin}/api`;
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
         this.authToken = null; // Token agora vem via cookie
@@ -3515,6 +3518,7 @@ class MagicGameSystem {
         const titleElement = document.getElementById('modalAchievementTitle');
         const nameElement = document.getElementById('modalAchievementName');
         const descElement = document.getElementById('modalAchievementDesc');
+        const dateElement = document.getElementById('modalAchievementDate');
         const xpElement = document.getElementById('modalAchievementXP');
         const specialSection = document.getElementById('specialAchievementSection');
         const passwordInput = document.getElementById('achievementPassword');
@@ -3525,6 +3529,20 @@ class MagicGameSystem {
         nameElement.textContent = achievement.name;
         descElement.textContent = achievement.description;
         xpElement.textContent = `+${achievement.xpReward} XP`;
+        
+        // Exibir data de desbloqueio se o achievement estiver desbloqueado
+        if (achievement.unlocked && achievement.unlockedAt) {
+            const unlockedDate = new Date(achievement.unlockedAt);
+            const formattedDate = unlockedDate.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            dateElement.textContent = `🗓️ Conquistado em ${formattedDate}`;
+            dateElement.style.display = 'block';
+        } else {
+            dateElement.style.display = 'none';
+        }
         
         // Verificar se é um achievement especial
         if (achievement.requiresPassword && !achievement.unlocked) {

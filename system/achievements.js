@@ -651,7 +651,7 @@ class AchievementSystem {
     }
 
     // Salvar conquista no servidor
-    async saveAchievement(playerId, achievement) {
+    async saveAchievement(playerId, achievement, customUnlockedAt = null) {
         try {
             const response = await fetch('/api/achievements', {
                 method: 'POST',
@@ -666,7 +666,7 @@ class AchievementSystem {
                     description: achievement.description,
                     icon: achievement.icon,
                     xpReward: achievement.xpReward,
-                    unlockedAt: new Date()
+                    unlockedAt: customUnlockedAt || new Date()
                 })
             });
             
@@ -706,6 +706,7 @@ class AchievementSystem {
                 if (localAch) {
                     localAch.unlocked = true;
                     localAch.progress = localAch.maxProgress;
+                    localAch.unlockedAt = serverAch.unlockedAt; // Armazenar data de desbloqueio
                 }
             });
             
@@ -784,10 +785,15 @@ class AchievementSystem {
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
         
+        // Usar a data da partida para achievements baseados na partida, data atual para achievements de estatística
+        const matchDate = matchData.createdAt ? new Date(matchData.createdAt) : new Date();
+        
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
         for (const achievement of allUnlocked) {
             try {
-                await this.saveAchievement(playerId, achievement);
+                // Usar data da partida para achievements de partida, data atual para achievements de estatística
+                const unlockedAt = matchAchievements.includes(achievement) ? matchDate : new Date();
+                await this.saveAchievement(playerId, achievement, unlockedAt);
                 
                 // CORREÇÃO: Mostrar notificação APENAS para o usuário master, XP é processado no servidor
                 if (gameSystem && gameSystem.currentPlayerId === playerId) {
@@ -883,7 +889,7 @@ class AchievementSystem {
     }
 
     // Método para verificar senha e desbloquear achievements especiais
-    async unlockSpecialAchievement(achievementId, password, playerId) {
+    async unlockSpecialAchievement(achievementId, password, playerId, customUnlockedAt = null) {
         try {
             const response = await fetch('/api/achievements/unlock-special', {
                 method: 'POST',
@@ -894,7 +900,8 @@ class AchievementSystem {
                 body: JSON.stringify({
                     achievementId: achievementId,
                     password: password,
-                    playerId: playerId
+                    playerId: playerId,
+                    customUnlockedAt: customUnlockedAt
                 })
             });
             
