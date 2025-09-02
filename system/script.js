@@ -1,6 +1,6 @@
 class MagicGameSystem {
     constructor() {
-        this.apiUrl = '/api';
+        this.apiUrl = 'http://localhost:3000/api';
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
         this.authToken = null; // Token agora vem via cookie
@@ -1507,7 +1507,7 @@ class MagicGameSystem {
             previewElement.classList.add('show');
             
             // Usar URL completa para garantir que funcione
-            const url = `/api/cards/search/${encodeURIComponent(cardName)}`;
+            const url = `http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`;
             console.log('📡 URL da requisição:', url);
             
             const response = await fetch(url);
@@ -5185,6 +5185,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
-
 });
-
