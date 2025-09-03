@@ -719,6 +719,7 @@ class AchievementSystem {
                     const playerStats = await statsResponse.json();
                     
                     // Recalcular progresso das conquistas baseadas em estatísticas
+                    const achievementsToSave = [];
                     this.achievements.forEach(achievement => {
                         if (!achievement.unlocked) {
                             switch (achievement.trigger) {
@@ -727,24 +728,28 @@ class AchievementSystem {
                                     // CORREÇÃO: Marcar como desbloqueada se atingiu o progresso máximo
                                     if (achievement.progress >= achievement.maxProgress) {
                                         achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                                 case 'win_streak':
                                     achievement.progress = playerStats.winStreak || 0;
                                     if (achievement.progress >= achievement.maxProgress) {
                                         achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                                 case 'archenemy_count':
                                     achievement.progress = playerStats.archenemyCount || 0;
                                     if (achievement.progress >= achievement.maxProgress) {
                                         achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                                 case 'commander_removed_count':
                                     achievement.progress = playerStats.commanderRemovals || 0;
                                     if (achievement.progress >= achievement.maxProgress) {
                                         achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                                 case 'match_count':
@@ -752,11 +757,21 @@ class AchievementSystem {
                                     // PRINCIPAL: Esta linha garante que conquistas de participação sejam desbloqueadas
                                     if (achievement.progress >= achievement.maxProgress) {
                                         achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                             }
                         }
                     });
+                    
+                    // Salvar achievements que foram desbloqueados automaticamente
+                    for (const achievement of achievementsToSave) {
+                        try {
+                            await this.saveAchievement(playerId, achievement);
+                        } catch (error) {
+                            console.error('Erro ao salvar achievement desbloqueado automaticamente:', achievement.name, error);
+                        }
+                    }
                 }
             } catch (statsError) {
                 console.error('Erro ao carregar estatísticas para progresso das conquistas:', statsError);

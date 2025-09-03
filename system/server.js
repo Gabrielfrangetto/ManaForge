@@ -1550,8 +1550,12 @@ app.post('/api/achievements', async (req, res) => {
         
         console.log(`✨ Criando novo achievement "${req.body.name}" para jogador ${req.body.playerId}`);
         
-        // Salvar o achievement para este jogador
-        const achievement = await Achievement.create(req.body);
+        // Salvar o achievement para este jogador com data personalizada se fornecida
+        const achievementData = {
+            ...req.body,
+            unlockedAt: req.body.unlockedAt ? new Date(req.body.unlockedAt) : new Date()
+        };
+        const achievement = await Achievement.create(achievementData);
         console.log('💾 Achievement salvo no banco:', achievement._id);
         
         // Adicionar XP ao jogador
