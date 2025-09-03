@@ -1510,7 +1510,7 @@ class MagicGameSystem {
             previewElement.classList.add('show');
             
             // Usar URL completa para garantir que funcione
-            const url = `/api/cards/search/${encodeURIComponent(cardName)}`;
+            const url = `http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`;
             console.log('📡 URL da requisição:', url);
             
             const response = await fetch(url);
@@ -4466,7 +4466,8 @@ class MagicGameSystem {
             participants: [ranking.first, ranking.second, ranking.third, ranking.fourth].filter(id => id),
             result: winnerPlayerId === this.currentPlayerId ? 'win' : 'loss',
             commanders: commanders,
-            playerProfiles: playerProfiles
+            playerProfiles: playerProfiles,
+            createdAt: new Date() // Data da partida para achievements
         };
     }
 
@@ -5203,5 +5204,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
-
 });
