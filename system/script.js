@@ -3515,6 +3515,7 @@ class MagicGameSystem {
         const titleElement = document.getElementById('modalAchievementTitle');
         const nameElement = document.getElementById('modalAchievementName');
         const descElement = document.getElementById('modalAchievementDesc');
+        const dateElement = document.getElementById('modalAchievementDate');
         const xpElement = document.getElementById('modalAchievementXP');
         const specialSection = document.getElementById('specialAchievementSection');
         const passwordInput = document.getElementById('achievementPassword');
@@ -3525,6 +3526,22 @@ class MagicGameSystem {
         nameElement.textContent = achievement.name;
         descElement.textContent = achievement.description;
         xpElement.textContent = `+${achievement.xpReward} XP`;
+        
+        // Exibir data de desbloqueio se o achievement estiver desbloqueado
+        if (achievement.unlocked && achievement.unlockedAt) {
+            const unlockedDate = new Date(achievement.unlockedAt);
+            const formattedDate = unlockedDate.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            dateElement.textContent = `Desbloqueado em: ${formattedDate}`;
+            dateElement.style.display = 'block';
+        } else {
+            dateElement.style.display = 'none';
+        }
         
         // Verificar se é um achievement especial
         if (achievement.requiresPassword && !achievement.unlocked) {
