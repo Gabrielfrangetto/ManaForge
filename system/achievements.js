@@ -224,7 +224,7 @@ class AchievementSystem {
             },
             {
                 id: 'first_game',
-                name: 'Primeiro Passo',
+                name: 'Primeiro Jogo',
                 description: 'Comece um jogo pela primeira vez',
                 icon: '🎮',
                 unlocked: false,
@@ -764,9 +764,14 @@ class AchievementSystem {
         
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
-        
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return new Date();
+            if (dateStr instanceof Date) return dateStr;
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0); // meio-dia local
+        }
         // Usar a data da partida para achievements baseados na partida, data atual para achievements de estatística
-        const matchDate = matchData?.date ? new Date(matchData.date) : (matchData?.createdAt ? new Date(matchData.createdAt) : new Date());
+        const matchDate = matchData?.date ? parseLocalDate(matchData.date) : (matchData?.createdAt ? new Date(matchData.createdAt) : new Date());
         
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
         // Para achievements de estatística, buscar data da primeira partida
