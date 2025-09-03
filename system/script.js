@@ -3111,7 +3111,7 @@ class MagicGameSystem {
                     // Se não tiver imagem, tentar buscar na API
                     if (!cardImage && cardName) {
                         try {
-                            const response = await fetch(`http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`);
+                            const response = await fetch(`/api/cards/search/${encodeURIComponent(cardName)}`);
                             if (response.ok) {
                                 const cardData = await response.json();
                                 const cardArray = Array.isArray(cardData) ? cardData : [cardData];
@@ -5214,3 +5214,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 });
+
