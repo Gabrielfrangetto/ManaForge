@@ -3533,9 +3533,7 @@ class MagicGameSystem {
             const formattedDate = unlockedDate.toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+                year: 'numeric'
             });
             dateElement.textContent = `Desbloqueado em: ${formattedDate}`;
             dateElement.style.display = 'block';
@@ -4436,11 +4434,22 @@ class MagicGameSystem {
         const observationsElement = document.getElementById('observations');
         const gameCardPreview = document.querySelector('#gameCardPreview img');
 
+        // Corrigir o parsing da data para evitar problemas de timezone
+        let matchDate;
+        if (matchDateElement && matchDateElement.value) {
+            // Criar a data no timezone local em vez de UTC
+            const dateString = matchDateElement.value;
+            const [year, month, day] = dateString.split('-');
+            matchDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } else {
+            matchDate = new Date();
+        }
+
         return {
             // CAMPO OBRIGATÓRIO: ID do jogador que está registrando a partida
             playerId: this.currentPlayerId,
             
-            date: matchDateElement ? new Date(matchDateElement.value) : new Date(),
+            date: matchDate,
             turns: matchTurnsElement ? parseInt(matchTurnsElement.value) : 0,
             firstPlayer: firstPlayerElement ? firstPlayerElement.value : '',
             
