@@ -1,9 +1,6 @@
 class MagicGameSystem {
     constructor() {
-        // Detectar automaticamente se está em produção ou desenvolvimento
-        this.apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:3000/api'
-            : `${window.location.origin}/api`;
+        this.apiUrl = 'http://localhost:3000/api';
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
         this.authToken = null; // Token agora vem via cookie
@@ -1308,9 +1305,11 @@ class MagicGameSystem {
                 registerBtn.classList.add('active');
                 registerBtn.innerHTML = '➖ Fechar Formulário';
                 
-                // Não definir data atual automaticamente para evitar problemas com fuso horário
+                // Definir data atual
                 const matchDateElement = document.getElementById('matchDate');
-                // Removida a definição automática da data
+                if (matchDateElement) {
+                    matchDateElement.value = new Date().toISOString().split('T')[0];
+                }
                 
                 // Popular campo firstPlayer com perfis cadastrados
                 this.populateFirstPlayerSelector();
@@ -3557,10 +3556,6 @@ class MagicGameSystem {
             
             // Limpar campos
             passwordInput.value = '';
-            const customDateInput = document.getElementById('customUnlockDate');
-            if (customDateInput) {
-                customDateInput.value = '';
-            }
             errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
             
@@ -3585,13 +3580,11 @@ class MagicGameSystem {
     
     async handleSpecialUnlock(achievementId) {
         const passwordInput = document.getElementById('achievementPassword');
-        const customDateInput = document.getElementById('customUnlockDate');
         const errorDiv = document.getElementById('passwordError');
         const successDiv = document.getElementById('passwordSuccess');
         const unlockBtn = document.getElementById('unlockSpecialBtn');
         
         const password = passwordInput.value.trim();
-        const customDate = customDateInput ? customDateInput.value : null;
         
         if (!password) {
             this.showPasswordError('Por favor, digite a senha.');
@@ -3603,17 +3596,10 @@ class MagicGameSystem {
         unlockBtn.textContent = '🔄 Desbloqueando...';
         
         try {
-            // Preparar data customizada se fornecida
-                let customUnlockedAt = null;
-                if (customDate) {
-                    customUnlockedAt = new Date(customDate + 'T12:00:00');
-                }
-            
             const result = await this.achievementSystem.unlockSpecialAchievement(
                 achievementId, 
                 password, 
-                this.currentPlayerId,
-                customUnlockedAt
+                this.currentPlayerId
             );
             
             if (result.success) {
@@ -3728,14 +3714,9 @@ class MagicGameSystem {
     }
 
     async checkAchievements() {
-        if (this.currentPlayerId) {
-            await this.achievementSystem.processMatchAchievements(
-                {}, // Dados vazios para verificação apenas de stats
-                this.currentPlayerId,
-                this.playerData,
-                this
-            );
-        }
+        // Esta função não deve processar achievements de estatística
+        // Eles são processados apenas quando uma partida é salva com a data correta
+        // Removendo esta chamada para evitar uso de data atual
     }
 
     unlockAchievement(achievementId) {
@@ -4486,7 +4467,7 @@ class MagicGameSystem {
             result: winnerPlayerId === this.currentPlayerId ? 'win' : 'loss',
             commanders: commanders,
             playerProfiles: playerProfiles,
-            createdAt: matchDateElement ? new Date(matchDateElement.value + 'T12:00:00') : new Date() // Data da partida para achievements
+            createdAt: matchDateElement ? new Date(matchDateElement.value) : new Date() // Data da partida para achievements
         };
     }
 
