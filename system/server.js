@@ -1793,6 +1793,29 @@ app.put('/api/players/:id/title', async (req, res) => {
     }
 });
 
+// Buscar primeira partida do jogador (para data de achievements de estatística)
+app.get('/api/players/:playerId/first-match', async (req, res) => {
+    try {
+        const firstMatch = await Match.findOne({
+            $or: [
+                { playerId: new mongoose.Types.ObjectId(req.params.playerId) },
+                { 'commanders.playerId': req.params.playerId },
+                { winner: new mongoose.Types.ObjectId(req.params.playerId) },
+                { firstPlayer: new mongoose.Types.ObjectId(req.params.playerId) }
+            ]
+        }).sort({ date: 1 }).limit(1);
+        
+        if (firstMatch) {
+            res.json({ date: firstMatch.date });
+        } else {
+            res.json({ date: null });
+        }
+    } catch (error) {
+        console.error('Erro ao buscar primeira partida:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
 // Alterar senha do usuário
 app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
     try {
