@@ -224,7 +224,7 @@ class AchievementSystem {
             },
             {
                 id: 'first_game',
-                name: 'Primeiro Jogo',
+                name: 'Primeiro Passo',
                 description: 'Comece um jogo pela primeira vez',
                 icon: '🎮',
                 unlocked: false,
@@ -718,25 +718,60 @@ class AchievementSystem {
                 if (statsResponse.ok) {
                     const playerStats = await statsResponse.json();
                     
-                    // Apenas atualizar progresso para exibição, sem salvar
+                    // Recalcular progresso das conquistas baseadas em estatísticas
+                    const achievementsToSave = [];
                     this.achievements.forEach(achievement => {
                         if (!achievement.unlocked) {
                             switch (achievement.trigger) {
                                 case 'win_count':
                                     achievement.progress = playerStats.wins || 0;
+                                    // CORREÇÃO: Marcar como desbloqueada se atingiu o progresso máximo
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
+                                    }
                                     break;
                                 case 'win_streak':
                                     achievement.progress = playerStats.winStreak || 0;
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
+                                    }
+                                    break;
+                                case 'archenemy_count':
+                                    achievement.progress = playerStats.archenemyCount || 0;
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
+                                    }
                                     break;
                                 case 'commander_removed_count':
                                     achievement.progress = playerStats.commanderRemovals || 0;
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
+                                    }
                                     break;
                                 case 'match_count':
                                     achievement.progress = playerStats.totalMatches || 0;
+                                    // PRINCIPAL: Esta linha garante que conquistas de participação sejam desbloqueadas
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
+                                    }
                                     break;
                             }
                         }
                     });
+                    
+                    // Salvar achievements que foram desbloqueados automaticamente
+                    for (const achievement of achievementsToSave) {
+                        try {
+                            await this.saveAchievement(playerId, achievement);
+                        } catch (error) {
+                            console.error('Erro ao salvar achievement desbloqueado automaticamente:', achievement.name, error);
+                        }
+                    }
                 }
             } catch (statsError) {
                 console.error('Erro ao carregar estatísticas para progresso das conquistas:', statsError);
@@ -764,25 +799,17 @@ class AchievementSystem {
         
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
-        function parseLocalDate(dateStr) {
-            if (!dateStr) return new Date();
-            if (dateStr instanceof Date) return dateStr;
-            const [y, m, d] = dateStr.split('-').map(Number);
-            return new Date(y, m - 1, d, 12, 0, 0); // meio-dia local
-        }
+        
         // Usar a data da partida para achievements baseados na partida, data atual para achievements de estatística
-        const matchDate = matchData?.date ? parseLocalDate(matchData.date) : (matchData?.createdAt ? new Date(matchData.createdAt) : new Date());
+        const matchDate = matchData.createdAt ? new Date(matchData.createdAt) : new Date();
         
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
-        // Para achievements de estatística, buscar data da primeira partida
-        
-        // Salvar achievements com datas apropriadas
         for (const achievement of allUnlocked) {
             try {
-                               
-                const unlockedAt = matchDate; // serve p/ eventos de partida e p/ estatística que disparou agora
+                // CORREÇÃO: Todos os achievements usam a data da partida (exceto achievements de senha)
+                const unlockedAt = matchDate;
                 await this.saveAchievement(playerId, achievement, unlockedAt);
-                                
+                
                 // CORREÇÃO: Mostrar notificação APENAS para o usuário master, XP é processado no servidor
                 if (gameSystem && gameSystem.currentPlayerId === playerId) {
                     // Mostrar notificação
@@ -794,7 +821,7 @@ class AchievementSystem {
                     }
                 }
             } catch (error) {
-                console.error('Erro ao salvar achievement:', achievement.name, error);
+                console.error('Erro ao processar conquista:', achievement.name, error);
             }
         }
         
