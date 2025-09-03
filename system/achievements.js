@@ -684,6 +684,10 @@ class AchievementSystem {
     // Carregar conquistas do jogador do servidor
     async loadPlayerAchievements(playerId) {
         try {
+            // Buscar estatísticas do jogador incluindo a data da última partida
+            const statsResponse = await fetch(`${this.serverUrl}/api/stats/${playerId}`);
+            const playerStats = await statsResponse.json();
+            
             // IMPORTANTE: Resetar todas as conquistas antes de carregar
             this.achievements.forEach(achievement => {
                 achievement.unlocked = false;
@@ -942,6 +946,54 @@ class AchievementSystem {
     // Obter achievements especiais (que requerem senha)
     getSpecialAchievements() {
         return this.achievements.filter(achievement => achievement.requiresPassword);
+    }
+
+    async fixExistingAchievementDates(playerId) {
+        try {
+            // Buscar a data da última partida
+            const statsResponse = await fetch(`${this.serverUrl}/api/stats/${playerId}`);
+            const playerStats = await statsResponse.json();
+            
+            if (!playerStats.lastMatchDate) {
+                console.log('Jogador não possui partidas para corrigir datas');
+                return;
+            }
+            
+            // Buscar conquistas baseadas em estatísticas que foram desbloqueadas após a última partida
+            const response = await fetch(`${this.serverUrl}/api/achievements/${playerId}`);
+            const unlockedAchievements = await response.json();
+            
+            const lastMatchDate = new Date(playerStats.lastMatchDate);
+            const achievementsToFix = [];
+            
+            for (const serverAch of unlockedAchievements) {
+                const unlockedDate = new Date(serverAch.unlockedAt);
+                const achievement = this.achievements.find(a => a.id === serverAch.achievementId);
+                
+                // Se é uma conquista baseada em estatísticas e foi desbloqueada após a última partida
+                if (achievement && achievement.type === 'stats' && unlockedDate > lastMatchDate) {
+                    achievementsToFix.push({
+                        ...serverAch,
+                        unlockedAt: lastMatchDate
+                    });
+                }
+            }
+            
+            // Corrigir as datas no servidor
+            for (const achievement of achievementsToFix) {
+                await fetch(`${this.serverUrl}/api/achievements`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(achievement)
+                });
+            }
+            
+            console.log(`Corrigidas ${achievementsToFix.length} conquistas com datas incorretas`);
+        } catch (error) {
+            console.error('Erro ao corrigir datas das conquistas:', error);
+        }
     }
 }
 

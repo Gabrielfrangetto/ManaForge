@@ -1497,6 +1497,18 @@ app.get('/api/stats/:playerId', async (req, res) => {
             archenemy: new mongoose.Types.ObjectId(req.params.playerId)
         });
         
+        // Buscar a data da última partida do jogador
+        const lastMatch = await Match.findOne({
+            $or: [
+                { playerId: new mongoose.Types.ObjectId(req.params.playerId) },
+                { 'commanders.playerId': req.params.playerId },
+                { winner: new mongoose.Types.ObjectId(req.params.playerId) },
+                { firstPlayer: new mongoose.Types.ObjectId(req.params.playerId) }
+            ]
+        }).sort({ createdAt: -1 }).limit(1);
+        
+        const lastMatchDate = lastMatch ? lastMatch.createdAt : null;
+        
         res.json({
             totalMatches,
             wins,
@@ -1509,6 +1521,7 @@ app.get('/api/stats/:playerId', async (req, res) => {
             commanderRemovals,
             archenemyCount,
             mostUsedDeck,
+            lastMatchDate, // Nova propriedade
             deckStats: deckStats.map(deck => ({
                 name: deck._id,
                 total: deck.total,
