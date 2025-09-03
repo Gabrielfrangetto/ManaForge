@@ -3072,9 +3072,17 @@ class MagicGameSystem {
         if (gameCardContainer && gameCardSection) {
             if (match.gameCard && match.gameCard.name) {
                 gameCardSection.style.display = 'block';
+                let ownerInfo = '';
+                if (match.gameCard.ownerId) {
+                    const ownerName = this.getPlayerNameById(match.gameCard.ownerId);
+                    if (ownerName) {
+                        ownerInfo = `<div class="game-card-owner">Dono: ${ownerName}</div>`;
+                    }
+                }
                 gameCardContainer.innerHTML = `
                     <div class="game-card-display">
                         ${match.gameCard.imageUrl ? `<img src="${match.gameCard.imageUrl}" alt="${match.gameCard.name}">` : ''}
+                        ${ownerInfo}
                     </div>
                 `;
             } else {
@@ -5204,4 +5212,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
+
 });
