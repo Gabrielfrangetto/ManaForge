@@ -682,7 +682,7 @@ class AchievementSystem {
     }
 
     // Carregar conquistas do jogador do servidor
-    async loadPlayerAchievements(playerId) {
+    async loadPlayerAchievements(playerId, matchDate = null) {
         try {
             // IMPORTANTE: Resetar todas as conquistas antes de carregar
             this.achievements.forEach(achievement => {
@@ -700,6 +700,7 @@ class AchievementSystem {
             
             const serverAchievements = await response.json();
             
+            // Modificar a assinatura da função (linha 685)
             // Marcar conquistas como desbloqueadas baseado nos dados do servidor
             serverAchievements.forEach(serverAch => {
                 const localAch = this.achievements.find(a => a.id === serverAch.achievementId);
@@ -767,7 +768,7 @@ class AchievementSystem {
                     // Salvar achievements que foram desbloqueados automaticamente
                     for (const achievement of achievementsToSave) {
                         try {
-                            await this.saveAchievement(playerId, achievement);
+                            await this.saveAchievement(playerId, achievement, matchDate);
                         } catch (error) {
                             console.error('Erro ao salvar achievement desbloqueado automaticamente:', achievement.name, error);
                         }
@@ -800,14 +801,15 @@ class AchievementSystem {
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
         
-        // Usar a data da partida para achievements baseados na partida, data atual para achievements de estatística
-        const matchDate = matchData.createdAt ? new Date(matchData.createdAt) : new Date();
+        // Na função processMatchAchievements, após processar achievements de partida
+        // Recarregar achievements para recalcular estatísticas com a data correta
+        await this.loadPlayerAchievements(playerId, matchData.createdAt);
         
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
         for (const achievement of allUnlocked) {
             try {
                 // CORREÇÃO: Todos os achievements usam a data da partida (exceto achievements de senha)
-                const unlockedAt = matchDate;
+                const unlockedAt = matchData.createdAt;
                 await this.saveAchievement(playerId, achievement, unlockedAt);
                 
                 // CORREÇÃO: Mostrar notificação APENAS para o usuário master, XP é processado no servidor
