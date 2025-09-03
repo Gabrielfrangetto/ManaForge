@@ -4467,7 +4467,7 @@ class MagicGameSystem {
             result: winnerPlayerId === this.currentPlayerId ? 'win' : 'loss',
             commanders: commanders,
             playerProfiles: playerProfiles,
-            createdAt: new Date() // Data da partida para achievements
+            createdAt: matchDateElement ? new Date(matchDateElement.value) : new Date() // Data da partida para achievements
         };
     }
 
@@ -5204,5 +5204,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
-
 });
