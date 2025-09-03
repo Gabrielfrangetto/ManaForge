@@ -1,6 +1,6 @@
 class MagicGameSystem {
     constructor() {
-        this.apiUrl = 'http://localhost:3000/api';
+        this.apiUrl = '/api';
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
         this.authToken = null; // Token agora vem via cookie
@@ -3069,17 +3069,9 @@ class MagicGameSystem {
         if (gameCardContainer && gameCardSection) {
             if (match.gameCard && match.gameCard.name) {
                 gameCardSection.style.display = 'block';
-                let ownerInfo = '';
-                if (match.gameCard.ownerId) {
-                    const ownerName = this.getPlayerNameById(match.gameCard.ownerId);
-                    if (ownerName) {
-                        ownerInfo = `<div class="game-card-owner">Dono: ${ownerName}</div>`;
-                    }
-                }
                 gameCardContainer.innerHTML = `
                     <div class="game-card-display">
                         ${match.gameCard.imageUrl ? `<img src="${match.gameCard.imageUrl}" alt="${match.gameCard.name}">` : ''}
-                        ${ownerInfo}
                     </div>
                 `;
             } else {
@@ -3523,7 +3515,6 @@ class MagicGameSystem {
         const titleElement = document.getElementById('modalAchievementTitle');
         const nameElement = document.getElementById('modalAchievementName');
         const descElement = document.getElementById('modalAchievementDesc');
-        const dateElement = document.getElementById('modalAchievementDate');
         const xpElement = document.getElementById('modalAchievementXP');
         const specialSection = document.getElementById('specialAchievementSection');
         const passwordInput = document.getElementById('achievementPassword');
@@ -3534,20 +3525,6 @@ class MagicGameSystem {
         nameElement.textContent = achievement.name;
         descElement.textContent = achievement.description;
         xpElement.textContent = `+${achievement.xpReward} XP`;
-        
-        // Exibir data de desbloqueio se o achievement estiver desbloqueado
-        if (achievement.unlocked && achievement.unlockedAt) {
-            const unlockedDate = new Date(achievement.unlockedAt);
-            const formattedDate = unlockedDate.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-            dateElement.textContent = `🗓️ Conquistado em ${formattedDate}`;
-            dateElement.style.display = 'block';
-        } else {
-            dateElement.style.display = 'none';
-        }
         
         // Verificar se é um achievement especial
         if (achievement.requiresPassword && !achievement.unlocked) {
@@ -3714,9 +3691,14 @@ class MagicGameSystem {
     }
 
     async checkAchievements() {
-        // Esta função não deve processar achievements de estatística
-        // Eles são processados apenas quando uma partida é salva com a data correta
-        // Removendo esta chamada para evitar uso de data atual
+        if (this.currentPlayerId) {
+            await this.achievementSystem.processMatchAchievements(
+                {}, // Dados vazios para verificação apenas de stats
+                this.currentPlayerId,
+                this.playerData,
+                this
+            );
+        }
     }
 
     unlockAchievement(achievementId) {
@@ -4466,8 +4448,7 @@ class MagicGameSystem {
             participants: [ranking.first, ranking.second, ranking.third, ranking.fourth].filter(id => id),
             result: winnerPlayerId === this.currentPlayerId ? 'win' : 'loss',
             commanders: commanders,
-            playerProfiles: playerProfiles,
-            createdAt: matchDateElement ? new Date(matchDateElement.value) : new Date() // Data da partida para achievements
+            playerProfiles: playerProfiles
         };
     }
 
@@ -5204,5 +5185,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthenticated) {
         await system.init();
     }
-
 });
