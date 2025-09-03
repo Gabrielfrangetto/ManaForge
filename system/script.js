@@ -3515,7 +3515,6 @@ class MagicGameSystem {
         const titleElement = document.getElementById('modalAchievementTitle');
         const nameElement = document.getElementById('modalAchievementName');
         const descElement = document.getElementById('modalAchievementDesc');
-        const dateElement = document.getElementById('modalAchievementDate');
         const xpElement = document.getElementById('modalAchievementXP');
         const specialSection = document.getElementById('specialAchievementSection');
         const passwordInput = document.getElementById('achievementPassword');
@@ -3526,20 +3525,6 @@ class MagicGameSystem {
         nameElement.textContent = achievement.name;
         descElement.textContent = achievement.description;
         xpElement.textContent = `+${achievement.xpReward} XP`;
-        
-        // Exibir data de desbloqueio se o achievement estiver desbloqueado
-        if (achievement.unlocked && achievement.unlockedAt) {
-            const unlockedDate = new Date(achievement.unlockedAt);
-            const formattedDate = unlockedDate.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit', 
-                year: 'numeric'
-            });
-            dateElement.textContent = `Desbloqueado em: ${formattedDate}`;
-            dateElement.style.display = 'block';
-        } else {
-            dateElement.style.display = 'none';
-        }
         
         // Verificar se é um achievement especial
         if (achievement.requiresPassword && !achievement.unlocked) {
@@ -4434,22 +4419,11 @@ class MagicGameSystem {
         const observationsElement = document.getElementById('observations');
         const gameCardPreview = document.querySelector('#gameCardPreview img');
 
-        // Corrigir o parsing da data para evitar problemas de timezone
-        let matchDate;
-        if (matchDateElement && matchDateElement.value) {
-            // Criar a data no timezone local em vez de UTC
-            const dateString = matchDateElement.value;
-            const [year, month, day] = dateString.split('-');
-            matchDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        } else {
-            matchDate = new Date();
-        }
-
         return {
             // CAMPO OBRIGATÓRIO: ID do jogador que está registrando a partida
             playerId: this.currentPlayerId,
             
-            date: matchDate,
+            date: matchDateElement ? new Date(matchDateElement.value) : new Date(),
             turns: matchTurnsElement ? parseInt(matchTurnsElement.value) : 0,
             firstPlayer: firstPlayerElement ? firstPlayerElement.value : '',
             
