@@ -1308,11 +1308,9 @@ class MagicGameSystem {
                 registerBtn.classList.add('active');
                 registerBtn.innerHTML = '➖ Fechar Formulário';
                 
-                // Definir data atual
+                // Não definir data atual automaticamente para evitar problemas com fuso horário
                 const matchDateElement = document.getElementById('matchDate');
-                if (matchDateElement) {
-                    matchDateElement.value = new Date().toISOString().split('T')[0];
-                }
+                // Removida a definição automática da data
                 
                 // Popular campo firstPlayer com perfis cadastrados
                 this.populateFirstPlayerSelector();
@@ -2773,8 +2771,8 @@ class MagicGameSystem {
             return;
         }
         
-        // O servidor já retorna na ordem correta
-        this.matchHistory.slice(0, 10).forEach(match => {
+        // Reverter a ordem para mostrar as partidas mais recentes primeiro
+        this.matchHistory.slice().reverse().slice(0, 10).forEach(match => {
             if (!match) return; // Pular entradas inválidas
             
             // Determinar se foi vitória ou derrota baseado no winner
@@ -3076,7 +3074,7 @@ class MagicGameSystem {
                 if (match.gameCard.ownerId) {
                     const ownerName = this.getPlayerNameById(match.gameCard.ownerId);
                     if (ownerName) {
-                        ownerInfo = `<div class="game-card-owner">${ownerName}</div>`;
+                        ownerInfo = `<div class="game-card-owner">Dono: ${ownerName}</div>`;
                     }
                 }
                 gameCardContainer.innerHTML = `
@@ -3559,6 +3557,10 @@ class MagicGameSystem {
             
             // Limpar campos
             passwordInput.value = '';
+            const customDateInput = document.getElementById('customUnlockDate');
+            if (customDateInput) {
+                customDateInput.value = '';
+            }
             errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
             
@@ -3583,11 +3585,13 @@ class MagicGameSystem {
     
     async handleSpecialUnlock(achievementId) {
         const passwordInput = document.getElementById('achievementPassword');
+        const customDateInput = document.getElementById('customUnlockDate');
         const errorDiv = document.getElementById('passwordError');
         const successDiv = document.getElementById('passwordSuccess');
         const unlockBtn = document.getElementById('unlockSpecialBtn');
         
         const password = passwordInput.value.trim();
+        const customDate = customDateInput ? customDateInput.value : null;
         
         if (!password) {
             this.showPasswordError('Por favor, digite a senha.');
@@ -3599,10 +3603,17 @@ class MagicGameSystem {
         unlockBtn.textContent = '🔄 Desbloqueando...';
         
         try {
+            // Preparar data customizada se fornecida
+            let customUnlockedAt = null;
+            if (customDate) {
+                customUnlockedAt = new Date(customDate + 'T00:00:00.000Z');
+            }
+            
             const result = await this.achievementSystem.unlockSpecialAchievement(
                 achievementId, 
                 password, 
-                this.currentPlayerId
+                this.currentPlayerId,
+                customUnlockedAt
             );
             
             if (result.success) {
@@ -5214,4 +5225,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 });
-

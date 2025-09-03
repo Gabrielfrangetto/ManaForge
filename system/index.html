@@ -269,6 +269,14 @@
                     <div class="password-input-container">
                         <label for="achievementPassword">🔐 Digite a senha para desbloquear:</label>
                         <input type="password" id="achievementPassword" placeholder="Digite a senha..." class="password-input">
+                        
+                        <!-- Novo campo de data customizada -->
+                        <div class="custom-date-container" style="margin-top: 15px;">
+                            <label for="customUnlockDate">📅 Data de desbloqueio (opcional):</label>
+                            <input type="date" id="customUnlockDate" class="custom-date-input">
+                            <small class="date-help-text">Se não informado, será usada a data atual</small>
+                        </div>
+                        
                         <button id="unlockSpecialBtn" class="unlock-special-btn">🔓 Desbloquear</button>
                     </div>
                     <div id="passwordError" class="password-error" style="display: none;"></div>
