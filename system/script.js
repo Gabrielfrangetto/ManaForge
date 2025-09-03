@@ -3604,10 +3604,10 @@ class MagicGameSystem {
         
         try {
             // Preparar data customizada se fornecida
-            let customUnlockedAt = null;
-            if (customDate) {
-                customUnlockedAt = new Date(customDate + 'T00:00:00.000Z');
-            }
+                let customUnlockedAt = null;
+                if (customDate) {
+                    customUnlockedAt = new Date(customDate + 'T12:00:00');
+                }
             
             const result = await this.achievementSystem.unlockSpecialAchievement(
                 achievementId, 
@@ -4486,7 +4486,7 @@ class MagicGameSystem {
             result: winnerPlayerId === this.currentPlayerId ? 'win' : 'loss',
             commanders: commanders,
             playerProfiles: playerProfiles,
-            createdAt: matchDateElement ? new Date(matchDateElement.value) : new Date() // Data da partida para achievements
+            createdAt: matchDateElement ? new Date(matchDateElement.value + 'T12:00:00') : new Date() // Data da partida para achievements
         };
     }
 

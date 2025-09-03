@@ -806,8 +806,8 @@ class AchievementSystem {
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
         for (const achievement of allUnlocked) {
             try {
-                // Usar data da partida para achievements de partida, data atual para achievements de estatística
-                const unlockedAt = matchAchievements.includes(achievement) ? matchDate : new Date();
+                // CORREÇÃO: Todos os achievements usam a data da partida (exceto achievements de senha)
+                const unlockedAt = matchDate;
                 await this.saveAchievement(playerId, achievement, unlockedAt);
                 
                 // CORREÇÃO: Mostrar notificação APENAS para o usuário master, XP é processado no servidor
