@@ -2773,7 +2773,7 @@ class MagicGameSystem {
             return;
         }
         
-        // Reverter a ordem para mostrar as partidas mais recentes primeiro
+        // O servidor já retorna na ordem correta
         this.matchHistory.slice(0, 10).forEach(match => {
             if (!match) return; // Pular entradas inválidas
             
@@ -3076,7 +3076,7 @@ class MagicGameSystem {
                 if (match.gameCard.ownerId) {
                     const ownerName = this.getPlayerNameById(match.gameCard.ownerId);
                     if (ownerName) {
-                        ownerInfo = `<div class="game-card-owner">Dono: ${ownerName}</div>`;
+                        ownerInfo = `<div class="game-card-owner">${ownerName}</div>`;
                     }
                 }
                 gameCardContainer.innerHTML = `
@@ -5214,5 +5214,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 });
-
 

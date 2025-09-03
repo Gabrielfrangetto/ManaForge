@@ -4516,6 +4516,7 @@ input.selected {
 
 .game-card-display {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     padding: 20px;
@@ -4530,6 +4531,29 @@ input.selected {
     border-radius: 8px;
     object-fit: cover;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    margin-bottom: 15px;
+}
+
+.game-card-owner {
+    background: linear-gradient(135deg, #ff8c00 0%, #ffb347 100%);
+    color: #1a1a1a;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(255, 140, 0, 0.3);
+    border: 1px solid rgba(255, 140, 0, 0.4);
+    min-width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.game-card-owner::before {
+    content: "👤";
+    font-size: 1rem;
 }
 
 .finishing-cards-display {
