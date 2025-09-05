@@ -650,8 +650,14 @@ class AchievementSystem {
                     break;
                     
                 case 'card_owner_count':
-                    // Este case foi removido para evitar incremento duplicado
-                    // O progresso é gerenciado pelo sistema de estatísticas
+                    // Se a carta da partida existe e o dono é o jogador
+                    if (matchData.gameCard && matchData.gameCard.ownerId === playerId) {
+                        achievementCopy.progress = (achievementCopy.progress || 0) + 1;
+                        
+                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
+                            shouldUnlock = true;
+                        }
+                    }
                     break;
             }
             
@@ -696,9 +702,9 @@ class AchievementSystem {
                     break;
                     
                 case 'card_owner_count':
-                    achievement.progress = playerStats.cardOwnerCount || 0;
-                    shouldUnlock = achievement.progress >= achievement.maxProgress;
-                    console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    // achievement.progress = playerStats.cardOwnerCount || 0;
+                    // shouldUnlock = achievement.progress >= achievement.maxProgress;
+                    // console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
                     break;
                     
                 case 'commander_removed_count':
