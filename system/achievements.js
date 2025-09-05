@@ -650,14 +650,8 @@ class AchievementSystem {
                     break;
                     
                 case 'card_owner_count':
-                    // Se a carta da partida existe e o dono é o jogador
-                    if (matchData.gameCard && matchData.gameCard.ownerId === playerId) {
-                        achievementCopy.progress = (achievementCopy.progress || 0) + 1;
-                        
-                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
-                            shouldUnlock = true;
-                        }
-                    }
+                    // Este case foi removido para evitar incremento duplicado
+                    // O progresso é gerenciado pelo sistema de estatísticas
                     break;
             }
             
