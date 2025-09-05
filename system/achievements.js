@@ -833,6 +833,7 @@ class AchievementSystem {
                                         achievementsToSave.push(achievement);
                                     }
                                     break;
+                                // REMOVIDO: case 'card_owner_count' - Processado apenas em checkMatchAchievements
                             }
                         }
                     });
