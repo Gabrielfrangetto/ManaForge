@@ -1681,7 +1681,7 @@ app.post('/api/players/:playerId/featured-achievements', async (req, res) => {
 // Desbloquear achievement especial com senha
 app.post('/api/achievements/unlock-special', async (req, res) => {
     try {
-        const { achievementId, password, playerId, unlockedAt } = req.body;
+        const { achievementId, password, playerId, customUnlockedAt } = req.body;
         
         // Verificar se a senha está correta
         const correctPassword = process.env.SPECIAL_ACHIEVEMENT_PASSWORD || 'default_password';
@@ -1754,7 +1754,7 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
             progress: 1,
             maxProgress: 1,
             xpReward: achievementData.xpReward,
-            unlockedAt: unlockedAt ? new Date(unlockedAt) : new Date()
+            unlockedAt: customUnlockedAt ? new Date(customUnlockedAt) : new Date()
         });
         
         res.json({ 
