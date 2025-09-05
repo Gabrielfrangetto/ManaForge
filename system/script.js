@@ -1053,6 +1053,9 @@ class MagicGameSystem {
                             case 'match_count':
                                 achievement.progress = this.playerData.totalMatches || 0;
                                 break;
+                            case 'card_owner_count':
+                                achievement.progress = this.playerData.cardOwnerCount || 0;
+                                break;
                         }
                     }
                 });
