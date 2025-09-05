@@ -224,7 +224,7 @@ class AchievementSystem {
             },
             {
                 id: 'first_game',
-                name: 'Primeiro Passo',
+                name: 'Primeiro a Jogar',
                 description: 'Comece um jogo pela primeira vez',
                 icon: '🎮',
                 unlocked: false,
@@ -232,7 +232,7 @@ class AchievementSystem {
                 maxProgress: 1,
                 xpReward: 25,
                 trigger: 'first_player',
-                category: 'Vitória' // Movido de Tutorial para Vitória
+                category: 'Vitória'
             },
             // NOVOS ACHIEVEMENTS DE COMANDANTE
             {
@@ -800,8 +800,18 @@ class AchievementSystem {
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
         
-        // Usar a data da partida para achievements baseados na partida, data atual para achievements de estatística
-        const matchDate = matchData.createdAt ? new Date(matchData.createdAt) : new Date();
+        // Função para parser de data local (evita problemas de timezone)
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return new Date();
+            if (dateStr instanceof Date) return dateStr;
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0);
+        }
+        
+        // Usar sempre a data da partida com parser local
+        const matchDate = matchData?.date 
+            ? parseLocalDate(matchData.date) 
+            : (matchData?.createdAt ? new Date(matchData.createdAt) : new Date());
         
         // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
         for (const achievement of allUnlocked) {

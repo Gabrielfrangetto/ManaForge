@@ -3516,6 +3516,7 @@ class MagicGameSystem {
         const nameElement = document.getElementById('modalAchievementName');
         const descElement = document.getElementById('modalAchievementDesc');
         const xpElement = document.getElementById('modalAchievementXP');
+        const dateElement = document.getElementById('modalAchievementDate');
         const specialSection = document.getElementById('specialAchievementSection');
         const passwordInput = document.getElementById('achievementPassword');
         const errorDiv = document.getElementById('passwordError');
@@ -3525,6 +3526,15 @@ class MagicGameSystem {
         nameElement.textContent = achievement.name;
         descElement.textContent = achievement.description;
         xpElement.textContent = `+${achievement.xpReward} XP`;
+        
+        // Exibir data de desbloqueio se disponível
+        if (achievement.unlockedAt && achievement.unlocked) {
+            const date = new Date(achievement.unlockedAt);
+            dateElement.textContent = `📅 Desbloqueado em: ${date.toLocaleDateString('pt-BR')}`;
+            dateElement.style.display = 'block';
+        } else {
+            dateElement.style.display = 'none';
+        }
         
         // Verificar se é um achievement especial
         if (achievement.requiresPassword && !achievement.unlocked) {
@@ -4423,7 +4433,7 @@ class MagicGameSystem {
             // CAMPO OBRIGATÓRIO: ID do jogador que está registrando a partida
             playerId: this.currentPlayerId,
             
-            date: matchDateElement ? new Date(matchDateElement.value) : new Date(),
+            date: matchDateElement ? matchDateElement.value : new Date().toISOString().split('T')[0],
             turns: matchTurnsElement ? parseInt(matchTurnsElement.value) : 0,
             firstPlayer: firstPlayerElement ? firstPlayerElement.value : '',
             
