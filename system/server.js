@@ -1719,7 +1719,7 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
                 icon: '💥',
                 xpReward: 100
             },
-            'land_apocalypse': {
+            'total_land_destruction': {
                 name: 'Apocalipse de Terras',
                 description: 'Em uma única partida, destrua todas as lands de pelo menos um oponente',
                 icon: '🌋',
