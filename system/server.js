@@ -1725,11 +1725,23 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
                 icon: '🌋',
                 xpReward: 300
             },
-            'combo_master': {
+            'combo_win': {
                 name: 'Mestre do Combo',
                 description: 'Ganhe uma partida combando',
                 icon: '🎯',
                 xpReward: 200
+            },
+            'first_win_new_deck': {
+                name: 'Estreia Vitoriosa',
+                description: 'Comece sua primeira partida com um deck novo e ganhe',
+                icon: '🌟',
+                xpReward: 300
+            },
+            'precon_victory': {
+                name: 'Poder Pré-Construído',
+                description: 'Ganhe uma partida com um precon',
+                icon: '📦',
+                xpReward: 300
             }
         };
         
