@@ -702,9 +702,9 @@ class AchievementSystem {
                     break;
                     
                 case 'card_owner_count':
-                    // achievement.progress = playerStats.cardOwnerCount || 0;
-                    // shouldUnlock = achievement.progress >= achievement.maxProgress;
-                    // console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    achievement.progress = playerStats.cardOwnerCount || 0;
+                    shouldUnlock = achievement.progress >= achievement.maxProgress;
+                    console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
                     break;
                     
                 case 'commander_removed_count':
@@ -757,10 +757,10 @@ class AchievementSystem {
     // Carregar conquistas do jogador do servidor
     async loadPlayerAchievements(playerId) {
         try {
-            // IMPORTANTE: Resetar todas as conquistas antes de carregar
+            // IMPORTANTE: Resetar apenas o status de desbloqueado, preservar progresso
             this.achievements.forEach(achievement => {
                 achievement.unlocked = false;
-                achievement.progress = 0;
+                // NÃO resetar o progresso aqui!
             });
             
             const response = await fetch(`/api/achievements/${playerId}`, {
