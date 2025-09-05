@@ -695,6 +695,16 @@ class AchievementSystem {
                     shouldUnlock = achievement.progress >= achievement.maxProgress;
                     console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
                     break;
+                    
+                case 'commander_removed_count':
+                    // Pular o achievement de primeira remoção (processado em processMatchAchievements)
+                    if (achievement.id === 'commander_removed_1') {
+                        break;
+                    }
+                    achievement.progress = playerStats.commanderRemovals || 0;
+                    shouldUnlock = achievement.progress >= achievement.maxProgress;
+                    console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    break;
             }
             
             if (shouldUnlock) {
