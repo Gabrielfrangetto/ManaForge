@@ -285,6 +285,7 @@ const playerSchema = new mongoose.Schema({
     fastestWin: { type: Number, default: 999 },
     longestMatch: { type: Number, default: 0 },
     favoriteDecks: { type: mongoose.Schema.Types.Mixed, default: {} },
+    cardOwnerCount: { type: Number, default: 0 }, // ADICIONAR ESTA LINHA
     // Adicionar estatísticas de firstPlayer
     firstPlayerStats: {
         timesStarted: { type: Number, default: 0 },
