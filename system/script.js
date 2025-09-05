@@ -3583,10 +3583,15 @@ class MagicGameSystem {
         unlockBtn.textContent = '🔄 Desbloqueando...';
         
         try {
+            // Capturar a data customizada do input
+            const customDateInput = document.getElementById('customUnlockDate');
+            const customUnlockedAt = customDateInput && customDateInput.value ? customDateInput.value : null;
+            
             const result = await this.achievementSystem.unlockSpecialAchievement(
                 achievementId, 
                 password, 
-                this.currentPlayerId
+                this.currentPlayerId,
+                customUnlockedAt
             );
             
             if (result.success) {
