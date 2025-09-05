@@ -1304,6 +1304,18 @@ app.post('/api/matches/multiplayer', async (req, res) => {
             }
         }
         
+        // NOVO: Atualizar estatísticas de cardOwner
+        if (matchData.gameCard && matchData.gameCard.ownerId) {
+            const cardOwner = await Player.findById(matchData.gameCard.ownerId);
+            if (cardOwner) {
+                const currentCardOwnerCount = cardOwner.cardOwnerCount || 0;
+                await Player.findByIdAndUpdate(matchData.gameCard.ownerId, {
+                    cardOwnerCount: currentCardOwnerCount + 1
+                });
+                console.log(`Card Owner Count atualizado para jogador ${matchData.gameCard.ownerId}: ${currentCardOwnerCount + 1}`);
+            }
+        }
+        
         res.status(201).json(match);
     } catch (error) {
         console.error('Erro ao salvar partida multiplayer:', error);

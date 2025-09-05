@@ -700,6 +700,12 @@ class AchievementSystem {
                     shouldUnlock = achievement.progress >= achievement.maxProgress;
                     console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
                     break;
+                    
+                case 'card_owner_count':
+                    achievement.progress = playerStats.cardOwnerCount || 0;
+                    shouldUnlock = achievement.progress >= achievement.maxProgress;
+                    console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    break;
             }
             
             if (shouldUnlock) {
