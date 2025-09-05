@@ -648,6 +648,17 @@ class AchievementSystem {
                         shouldUnlock = true;
                     }
                     break;
+                    
+                case 'card_owner_count':
+                    // Se a carta da partida existe e o dono é o jogador
+                    if (matchData.gameCard && matchData.gameCard.ownerId === playerId) {
+                        achievementCopy.progress = (achievementCopy.progress || 0) + 1;
+                        
+                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
+                            shouldUnlock = true;
+                        }
+                    }
+                    break;
             }
             
             if (shouldUnlock) {
