@@ -452,6 +452,67 @@ class AchievementSystem {
                 xpReward: 150,
                 trigger: 'match_count',
                 category: 'Participação'
+            },
+            // NOVOS ACHIEVEMENTS DE DONO DA CARTA
+            {
+                id: 'card_owner_1',
+                name: 'Primeira Contribuição',
+                description: 'Tenha 1 carta sua como carta da partida',
+                icon: '🌟',
+                unlocked: false,
+                progress: 0,
+                maxProgress: 1,
+                xpReward: 25,
+                trigger: 'card_owner_count',
+                category: 'Carta do Jogo'
+            },
+            {
+                id: 'card_owner_5',
+                name: 'Colecionador Ativo',
+                description: 'Tenha 5 cartas suas como carta da partida',
+                icon: '📚',
+                unlocked: false,
+                progress: 0,
+                maxProgress: 5,
+                xpReward: 50,
+                trigger: 'card_owner_count',
+                category: 'Carta do Jogo'
+            },
+            {
+                id: 'card_owner_10',
+                name: 'Influenciador de Mesa',
+                description: 'Tenha 10 cartas suas como carta da partida',
+                icon: '🎭',
+                unlocked: false,
+                progress: 0,
+                maxProgress: 10,
+                xpReward: 75,
+                trigger: 'card_owner_count',
+                category: 'Carta do Jogo'
+            },
+            {
+                id: 'card_owner_25',
+                name: 'Protagonista Frequente',
+                description: 'Tenha 25 cartas suas como carta da partida',
+                icon: '🎪',
+                unlocked: false,
+                progress: 0,
+                maxProgress: 25,
+                xpReward: 100,
+                trigger: 'card_owner_count',
+                category: 'Carta do Jogo'
+            },
+            {
+                id: 'card_owner_50',
+                name: 'Lenda das Cartas',
+                description: 'Tenha 50 cartas suas como carta da partida',
+                icon: '👑',
+                unlocked: false,
+                progress: 0,
+                maxProgress: 50,
+                xpReward: 200,
+                trigger: 'card_owner_count',
+                category: 'Carta do Jogo'
             }
         ];
     }
