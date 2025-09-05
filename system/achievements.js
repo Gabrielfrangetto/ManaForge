@@ -697,10 +697,6 @@ class AchievementSystem {
                     break;
                     
                 case 'commander_removed_count':
-                    // Pular o achievement de primeira remoção (processado em processMatchAchievements)
-                    if (achievement.id === 'commander_removed_1') {
-                        break;
-                    }
                     achievement.progress = playerStats.commanderRemovals || 0;
                     shouldUnlock = achievement.progress >= achievement.maxProgress;
                     console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
@@ -871,6 +867,17 @@ class AchievementSystem {
                 firstMatchAchievement.unlocked = true;
                 firstMatchAchievement.progress = 1;
                 matchAchievements.push(firstMatchAchievement);
+            }
+        }
+        
+        // Verificar se é a primeira remoção de comandante para desbloquear "Primeira Queda"
+        if (playerStats.commanderRemovals === 1) {
+            // Desbloquear "Primeira Queda" com data da partida
+            const firstCommanderRemovedAchievement = this.achievements.find(a => a.id === 'commander_removed_1');
+            if (firstCommanderRemovedAchievement && !firstCommanderRemovedAchievement.unlocked) {
+                firstCommanderRemovedAchievement.unlocked = true;
+                firstCommanderRemovedAchievement.progress = 1;
+                matchAchievements.push(firstCommanderRemovedAchievement);
             }
         }
         
