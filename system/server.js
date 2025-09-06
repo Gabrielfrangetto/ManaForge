@@ -358,7 +358,7 @@ const achievementSchema = new mongoose.Schema({
     description: { type: String, required: true },
     icon: { type: String, required: true },
     xpReward: { type: Number, required: true },
-    unlockedAt: { type: Date, default: Date.now }
+    unlockedAt: { type: Date, required: true }
 });
 
 // NOVO: Índice único composto para evitar duplicações
