@@ -724,7 +724,7 @@ class AchievementSystem {
     }
 
     // Salvar conquista no servidor
-    async saveAchievement(playerId, achievement, customUnlockedAt = null) {
+    async saveAchievement(playerId, achievement, unlockedAt) {
         try {
             const response = await fetch('/api/achievements', {
                 method: 'POST',
@@ -739,7 +739,7 @@ class AchievementSystem {
                     description: achievement.description,
                     icon: achievement.icon,
                     xpReward: achievement.xpReward,
-                    unlockedAt: customUnlockedAt || new Date()
+                    unlockedAt: unlockedAt
                 })
             });
             
@@ -840,7 +840,7 @@ class AchievementSystem {
                     // Salvar achievements que foram desbloqueados automaticamente
                     for (const achievement of achievementsToSave) {
                         try {
-                            await this.saveAchievement(playerId, achievement);
+                            await this.saveAchievement(playerId, achievement, new Date());
                         } catch (error) {
                             console.error('Erro ao salvar achievement desbloqueado automaticamente:', achievement.name, error);
                         }
