@@ -1563,10 +1563,15 @@ app.post('/api/achievements', async (req, res) => {
         
         console.log(`✨ Criando novo achievement "${req.body.name}" para jogador ${req.body.playerId}`);
         
-        // Salvar o achievement para este jogador com data personalizada se fornecida
+        // Validar se unlockedAt foi fornecido
+        if (!req.body.unlockedAt) {
+            return res.status(400).json({ error: 'unlockedAt é obrigatório' });
+        }
+        
+        // Salvar o achievement para este jogador
         const achievementData = {
             ...req.body,
-            unlockedAt: req.body.unlockedAt ? new Date(req.body.unlockedAt) : new Date()
+            unlockedAt: new Date(req.body.unlockedAt)
         };
         const achievement = await Achievement.create(achievementData);
         console.log('💾 Achievement salvo no banco:', achievement._id);
@@ -1768,6 +1773,14 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
         
         const achievementData = specialAchievements[achievementId];
         
+        // Validar se customUnlockedAt foi fornecido
+        if (!customUnlockedAt) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'customUnlockedAt é obrigatório' 
+            });
+        }
+        
         // Criar o achievement no banco de dados
         const newAchievement = await Achievement.create({
             playerId: playerId,
@@ -1779,7 +1792,7 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
             progress: 1,
             maxProgress: 1,
             xpReward: achievementData.xpReward,
-            unlockedAt: customUnlockedAt ? new Date(customUnlockedAt) : new Date()
+            unlockedAt: new Date(customUnlockedAt)
         });
         
         res.json({ 

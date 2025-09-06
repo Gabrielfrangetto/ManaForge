@@ -1,3 +1,11 @@
+function parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return dateStr;
+    // espera 'YYYY-MM-DD'
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0); // meio-dia evita "voltar 1 dia" por timezone
+}
+
 class AchievementSystem {
     constructor() {
         this.achievements = this.initializeAchievements();
@@ -707,10 +715,22 @@ class AchievementSystem {
                     console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
                     break;
                     
+                case 'match_count':
+                    // Não processar match_count para 1 (tratado em processMatchAchievements)
+                    if (achievement.maxProgress > 1) {
+                        achievement.progress = playerStats.totalMatches || 0;
+                        shouldUnlock = achievement.progress >= achievement.maxProgress;
+                        console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    }
+                    break;
+                    
                 case 'commander_removed_count':
-                    achievement.progress = playerStats.commanderRemovals || 0;
-                    shouldUnlock = achievement.progress >= achievement.maxProgress;
-                    console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    // Não processar commander_removed_count para 1 (tratado em processMatchAchievements)
+                    if (achievement.maxProgress > 1) {
+                        achievement.progress = playerStats.commanderRemovals || 0;
+                        shouldUnlock = achievement.progress >= achievement.maxProgress;
+                        console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
+                    }
                     break;
             }
             
@@ -733,18 +753,28 @@ class AchievementSystem {
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                    playerId: playerId,
+                    playerId,
                     achievementId: achievement.id,
                     name: achievement.name,
                     description: achievement.description,
                     icon: achievement.icon,
                     xpReward: achievement.xpReward,
-                    unlockedAt: unlockedAt
+                    progress: achievement.progress ?? 0,
+                    unlocked: achievement.unlocked === true,
+                    unlockedAt // obrigatório; não usar || new Date()
                 })
             });
             
             if (!response.ok) {
                 throw new Error('Erro ao salvar conquista');
+            }
+            
+            // Atualização otimista local (para o modal mostrar a data sem refresh)
+            const local = this.achievements.find(a => a.id === achievement.id);
+            if (local) {
+                local.unlocked = true;
+                local.progress = Math.max(local.progress || 0, achievement.progress || local.maxProgress || 1);
+                local.unlockedAt = unlockedAt; // <- mostra no modal imediatamente
             }
             
             return await response.json();
@@ -864,15 +894,27 @@ class AchievementSystem {
 
     // Processar conquistas após salvar uma partida
     async processMatchAchievements(matchData, playerId, playerStats, gameSystem) {
+        // Calcular matchDate sem fallback para "agora"
+        const matchDate = 
+            matchData?.date ? parseLocalDate(matchData.date)
+            : matchData?.createdAt ? new Date(matchData.createdAt)
+            : null;
+        
+        if (!matchDate) {
+            console.warn('Sem data da partida; adiando save de achievements.');
+            return [];
+        }
+        
         // Verificar conquistas baseadas na partida
         const matchAchievements = this.checkMatchAchievements(matchData, playerId);
         
         // Verificar conquistas baseadas em estatísticas
         const statAchievements = this.checkStatAchievements(playerStats);
         
-        // Verificar se é a primeira partida do jogador para desbloquear "Primeiro Passo"
+        // Desbloqueios "de primeira vez" dentro da partida (para ter matchDate)
+        
+        // "Primeiro Passo" (first_match): quando playerStats.totalMatches === 1
         if (playerStats.totalMatches === 1) {
-            // Desbloquear "Primeiro Passo" com data da partida
             const firstMatchAchievement = this.achievements.find(a => a.id === 'first_match');
             if (firstMatchAchievement && !firstMatchAchievement.unlocked) {
                 firstMatchAchievement.unlocked = true;
@@ -881,20 +923,8 @@ class AchievementSystem {
             }
         }
         
-        // Verificar se é a primeira remoção de comandante para desbloquear "Primeira Queda"
+        // "Primeira Queda" (commander_removed_1): quando houve remoção do comandante nesta partida e playerStats.commanderRemovals === 1
         if (playerStats.commanderRemovals === 1) {
-            // Desbloquear "Primeira Queda" com data da partida
-            const firstCommanderRemovedAchievement = this.achievements.find(a => a.id === 'commander_removed_1');
-            if (firstCommanderRemovedAchievement && !firstCommanderRemovedAchievement.unlocked) {
-                firstCommanderRemovedAchievement.unlocked = true;
-                firstCommanderRemovedAchievement.progress = 1;
-                matchAchievements.push(firstCommanderRemovedAchievement);
-            }
-        }
-        
-        // Verificar se é a primeira remoção de comandante para desbloquear "Primeira Queda"
-        if (playerStats.commanderRemovals === 1) {
-            // Desbloquear "Primeira Queda" com data da partida
             const firstCommanderRemovedAchievement = this.achievements.find(a => a.id === 'commander_removed_1');
             if (firstCommanderRemovedAchievement && !firstCommanderRemovedAchievement.unlocked) {
                 firstCommanderRemovedAchievement.unlocked = true;
@@ -906,25 +936,10 @@ class AchievementSystem {
         // Combinar todas as conquistas desbloqueadas
         const allUnlocked = [...matchAchievements, ...statAchievements];
         
-        // Função para parser de data local (evita problemas de timezone)
-        function parseLocalDate(dateStr) {
-            if (!dateStr) return new Date();
-            if (dateStr instanceof Date) return dateStr;
-            const [y, m, d] = dateStr.split('-').map(Number);
-            return new Date(y, m - 1, d, 12, 0, 0);
-        }
-        
-        // Usar sempre a data da partida com parser local
-        const matchDate = matchData?.date 
-            ? parseLocalDate(matchData.date) 
-            : (matchData?.createdAt ? new Date(matchData.createdAt) : new Date());
-        
-        // Salvar cada conquista desbloqueada (servidor processa XP automaticamente)
+        // Salvar cada conquista desbloqueada sempre passando matchDate
         for (const achievement of allUnlocked) {
             try {
-                // CORREÇÃO: Todos os achievements usam a data da partida (exceto achievements de senha)
-                const unlockedAt = matchDate;
-                await this.saveAchievement(playerId, achievement, unlockedAt);
+                await this.saveAchievement(playerId, achievement, matchDate);
                 
                 // CORREÇÃO: Mostrar notificação APENAS para o usuário master, XP é processado no servidor
                 if (gameSystem && gameSystem.currentPlayerId === playerId) {
