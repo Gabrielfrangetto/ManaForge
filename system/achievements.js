@@ -626,7 +626,7 @@ class AchievementSystem {
                     
                 // NOVOS TRIGGERS PARA COMANDANTE
                 case 'win_after_commander_removed_5':
-                    const playerCommanderData = matchData.playerCommanderRemovals?.find(cr => cr.playerId === playerId);
+                    const playerCommanderData = matchData.playerCommanderRemoved?.find(cr => cr.playerId === playerId);
                     if (matchData.winner === playerId && playerCommanderData && playerCommanderData.count >= 5) {
                         achievementCopy.progress = 1;
                         shouldUnlock = true;
@@ -924,7 +924,7 @@ class AchievementSystem {
         }
         
         // "Primeira Queda" — destrava na partida em que HOUVER remoção do comandante
-        const removalThisMatch = matchData.playerCommanderRemovals
+        const removalThisMatch = matchData.playerCommanderRemoved
             ?.find(cr => cr.playerId === playerId && cr.count > 0);
         
         if (removalThisMatch) {
