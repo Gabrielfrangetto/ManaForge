@@ -745,6 +745,9 @@ class AchievementSystem {
 
     // Salvar conquista no servidor
     async saveAchievement(playerId, achievement, unlockedAt) {
+        if (!unlockedAt) {
+            throw new Error('unlockedAt é obrigatório');
+        }
         try {
             const response = await fetch('/api/achievements', {
                 method: 'POST',
@@ -867,14 +870,8 @@ class AchievementSystem {
                         }
                     });
                     
-                    // Salvar achievements que foram desbloqueados automaticamente
-                    for (const achievement of achievementsToSave) {
-                        try {
-                            await this.saveAchievement(playerId, achievement, new Date());
-                        } catch (error) {
-                            console.error('Erro ao salvar achievement desbloqueado automaticamente:', achievement.name, error);
-                        }
-                    }
+                    // Achievements desbloqueados automaticamente não são mais salvos aqui
+                    // para evitar sobrescrever datas corretas com new Date()
                 }
             } catch (statsError) {
                 console.error('Erro ao carregar estatísticas para progresso das conquistas:', statsError);
@@ -933,8 +930,12 @@ class AchievementSystem {
             }
         }
         
-        // Combinar todas as conquistas desbloqueadas
-        const allUnlocked = [...matchAchievements, ...statAchievements];
+        // Deduplicar: priorizar achievements da PARTIDA sobre os de estatística
+        const map = new Map();
+        for (const a of matchAchievements) map.set(a.id, { ...a, _src: 'match' });
+        for (const a of statAchievements) if (!map.has(a.id)) map.set(a.id, { ...a, _src: 'stats' });
+        
+        const allUnlocked = [...map.values()];
         
         // Salvar cada conquista desbloqueada sempre passando matchDate
         for (const achievement of allUnlocked) {
