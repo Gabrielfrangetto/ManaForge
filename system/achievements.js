@@ -852,10 +852,13 @@ class AchievementSystem {
                                     }
                                     break;
                                 case 'commander_removed_count':
-                                    achievement.progress = playerStats.commanderRemovals || 0;
-                                    if (achievement.progress >= achievement.maxProgress) {
-                                        achievement.unlocked = true;
-                                        achievementsToSave.push(achievement);
+                                    // só trate acumulativos (>=5, >=10, etc.)
+                                    if (achievement.maxProgress > 1) {
+                                        achievement.progress = playerStats.commanderRemovals || 0;
+                                        if (achievement.progress >= achievement.maxProgress) {
+                                            achievement.unlocked = true;
+                                            achievementsToSave.push(achievement);
+                                        }
                                     }
                                     break;
                                 case 'match_count':
@@ -920,13 +923,17 @@ class AchievementSystem {
             }
         }
         
-        // "Primeira Queda" (commander_removed_1): quando houve remoção do comandante nesta partida e playerStats.commanderRemovals === 1
-        if (playerStats.commanderRemovals === 1) {
-            const firstCommanderRemovedAchievement = this.achievements.find(a => a.id === 'commander_removed_1');
-            if (firstCommanderRemovedAchievement && !firstCommanderRemovedAchievement.unlocked) {
-                firstCommanderRemovedAchievement.unlocked = true;
-                firstCommanderRemovedAchievement.progress = 1;
-                matchAchievements.push(firstCommanderRemovedAchievement);
+        // "Primeira Queda" — destrava na partida em que HOUVER remoção do comandante
+        const removalThisMatch = matchData.playerCommanderRemovals
+            ?.find(cr => cr.playerId === playerId && cr.count > 0);
+        
+        if (removalThisMatch) {
+            const firstRemoval = this.achievements.find(a => a.id === 'commander_removed_1');
+            if (firstRemoval && !firstRemoval.unlocked) {
+                firstRemoval.unlocked = true;
+                firstRemoval.progress = 1;
+                // entra no pacote de achievements da PARTIDA (vai salvar com matchDate)
+                matchAchievements.push(firstRemoval);
             }
         }
         
