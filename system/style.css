@@ -5388,12 +5388,13 @@ input.selected {
 }
 
 #masteryCommanderImage {
-    width: 80px;
-    height: 80px;
-    border-radius: 10px;
-    border: 2px solid #ffd700;
+    width: 160px;
+    height: 160px;
+    border-radius: 20px;
+    border: 3px solid #ffd700;
     object-fit: cover;
     margin: 0 auto;
+    display: block;
 }
 
 .mastery-commander-info h2 {
