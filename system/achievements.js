@@ -887,13 +887,11 @@ class AchievementSystem {
                                     }
                                     break;
                                 case 'commander_removed_count':
-                                    // só trate acumulativos (>=5, >=10, etc.)
-                                    if (achievement.maxProgress > 1) {
-                                        achievement.progress = playerStats.commanderRemovals || 0;
-                                        if (achievement.progress >= achievement.maxProgress) {
-                                            achievement.unlocked = true;
-                                            achievementsToSave.push(achievement);
-                                        }
+                                    achievement.progress = playerStats.commanderRemovals || 0;
+                                    // CORREÇÃO: Não ignorar achievement de maxProgress = 1
+                                    if (achievement.progress >= achievement.maxProgress) {
+                                        achievement.unlocked = true;
+                                        achievementsToSave.push(achievement);
                                     }
                                     break;
                                 case 'match_count':
