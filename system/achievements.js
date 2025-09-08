@@ -244,18 +244,6 @@ class AchievementSystem {
             },
             // NOVOS ACHIEVEMENTS DE COMANDANTE
             {
-                id: 'commander_removed_1',
-                name: 'Primeira Queda',
-                description: 'Tenha seu comandante removido pelo menos 1 vez na partida',
-                icon: '⚔️',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 1,
-                xpReward: 25,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
-            {
                 id: 'commander_removed_5',
                 name: 'Alvo Persistente',
                 description: 'Tenha seu comandante removido 5 vezes',
@@ -681,14 +669,10 @@ class AchievementSystem {
                         .reduce((sum, r) => sum + Number(r?.count || 0), 0);
                     
                     if (thisMatch > 0) {
-                        // acumula progresso desta partida (serve para 1x, 5x, 10x, …)
+                        // acumula progresso desta partida (serve para 5x, 10x, …)
                         achievementCopy.progress = (achievementCopy.progress || 0) + thisMatch;
                         
-                        if (achievementCopy.maxProgress === 1) {
-                            // "Primeira Queda" – desbloqueio imediato na partida
-                            achievementCopy.progress = 1;
-                            shouldUnlock = true;
-                        } else if (achievementCopy.progress >= achievementCopy.maxProgress) {
+                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
                             shouldUnlock = true;
                         }
                     }
@@ -752,14 +736,7 @@ class AchievementSystem {
                     break;
                     
                 case 'commander_removed_count':
-                    if (achievement.maxProgress === 1) {
-                        // Desbloqueio retroativo: se já teve comandante removido pelo menos 1 vez
-                        if ((playerStats.commanderRemovals || 0) >= 1) {
-                            achievement.progress = 1;
-                            shouldUnlock = true;
-                            console.log(`Conquista ${achievement.name}: desbloqueio retroativo - progresso ${achievement.progress}/${achievement.maxProgress}`);
-                        }
-                    } else if (achievement.maxProgress > 1) {
+                    if (achievement.maxProgress > 1) {
                         achievement.progress = playerStats.commanderRemovals || 0;
                         shouldUnlock = achievement.progress >= achievement.maxProgress;
                         console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
