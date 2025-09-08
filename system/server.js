@@ -1547,43 +1547,69 @@ app.post('/api/achievements', async (req, res) => {
     });
     
     try {
-        // Verificar se ESTE JOGADOR já desbloqueou ESTA conquista específica
-        const existingAchievement = await Achievement.findOne({ 
-            playerId: req.body.playerId, 
-            achievementId: req.body.achievementId 
-        });
-        
-        if (existingAchievement) {
-            console.log(`⚠️ Achievement "${req.body.name}" já existe para jogador ${req.body.playerId}`);
-            return res.status(200).json({ 
-                message: 'Achievement já desbloqueado por este jogador', 
-                achievement: existingAchievement 
+        const {
+            playerId,
+            achievementId,
+            name,
+            description,
+            icon,
+            xpReward,
+            unlockedAt,
+            progress
+        } = req.body;
+
+        if (!playerId || !achievementId || !unlockedAt) {
+            return res.status(400).json({ error: 'playerId, achievementId e unlockedAt são obrigatórios' });
+        }
+
+        const unlockedDate = new Date(unlockedAt);
+        if (Number.isNaN(unlockedDate.getTime())) {
+            return res.status(400).json({ error: 'unlockedAt inválido' });
+        }
+
+        const existing = await Achievement.findOne({ playerId, achievementId });
+
+        if (existing) {
+            if (existing.unlocked === true || existing.unlockedAt) {
+                // Já desbloqueado: não altere data/histórico
+                console.log(`⚠️ Achievement "${name}" já desbloqueado para jogador ${playerId}`);
+                return res.json(existing);
+            }
+            // Existente bloqueado → desbloqueia agora com a data da partida
+            console.log(`🔓 Desbloqueando achievement bloqueado "${name}" para jogador ${playerId}`);
+            existing.unlocked = true;
+            existing.unlockedAt = unlockedDate;
+            existing.progress = Math.max(existing.progress || 0, typeof progress === 'number' ? progress : 1);
+            await existing.save();
+            
+            // Processar XP após desbloquear
+            const achievement = existing;
+            console.log('💾 Achievement desbloqueado no banco:', achievement._id);
+        } else {
+            // Não existe → criar desbloqueado
+            console.log(`✨ Criando novo achievement "${name}" para jogador ${playerId}`);
+            const achievement = await Achievement.create({
+                playerId,
+                achievementId,
+                name,
+                description,
+                icon,
+                xpReward,
+                unlocked: true,
+                unlockedAt: unlockedDate,
+                progress: typeof progress === 'number' ? progress : 1,
             });
+            console.log('💾 Achievement criado no banco:', achievement._id);
         }
-        
-        console.log(`✨ Criando novo achievement "${req.body.name}" para jogador ${req.body.playerId}`);
-        
-        // Validar se unlockedAt foi fornecido
-        if (!req.body.unlockedAt) {
-            return res.status(400).json({ error: 'unlockedAt é obrigatório' });
-        }
-        
-        // Salvar o achievement para este jogador
-        const achievementData = {
-            ...req.body,
-            unlockedAt: new Date(req.body.unlockedAt)
-        };
-        const achievement = await Achievement.create(achievementData);
-        console.log('💾 Achievement salvo no banco:', achievement._id);
         
         // Adicionar XP ao jogador
-        const player = await Player.findById(req.body.playerId);
-        if (player && req.body.xpReward) {
+        const player = await Player.findById(playerId);
+        if (player && xpReward) {
             console.log(`👤 Jogador encontrado: ${player.name || player._id} - XP atual: ${player.xp || 0}`);
             
             // Adicionar XP do achievement
-            const newXP = (player.xp || 0) + req.body.xpReward;
-            console.log(`📈 Calculando novo XP: ${player.xp || 0} + ${req.body.xpReward} = ${newXP}`);
+            const newXP = (player.xp || 0) + xpReward;
+            console.log(`📈 Calculando novo XP: ${player.xp || 0} + ${xpReward} = ${newXP}`);
             
             // Verificar level up
             let currentXP = newXP;
@@ -1598,22 +1624,29 @@ app.post('/api/achievements', async (req, res) => {
             }
             
             // Atualizar jogador
-            const updateResult = await Player.findByIdAndUpdate(req.body.playerId, {
+            const updateResult = await Player.findByIdAndUpdate(playerId, {
                 xp: currentXP,
                 level: currentLevel,
                 xpToNext: xpToNext
             }, { new: true });
             
-            console.log(`✅ XP adicionado para jogador ${req.body.playerId}: +${req.body.xpReward} XP (Achievement: ${req.body.name})`);
+            console.log(`✅ XP adicionado para jogador ${playerId}: +${xpReward} XP (Achievement: ${name})`);
             console.log(`📊 Status final: Level ${currentLevel}, XP: ${currentXP}/${xpToNext}`);
         } else {
-            console.log(`❌ Jogador não encontrado ou sem XP reward: playerId=${req.body.playerId}, xpReward=${req.body.xpReward}`);
+            console.log(`❌ Jogador não encontrado ou sem XP reward: playerId=${playerId}, xpReward=${xpReward}`);
         }
         
-        res.status(201).json(achievement);
-    } catch (error) {
-        console.error('❌ Erro ao salvar conquista:', error);
-        res.status(500).json({ error: 'Erro interno do servidor' });
+        // Retornar o achievement atualizado ou criado
+        const finalAchievement = existing || await Achievement.findOne({ playerId, achievementId });
+        res.status(201).json(finalAchievement);
+    } catch (err) {
+        // Race condition do índice único
+        if (err.code === 11000) {
+            const doc = await Achievement.findOne({ playerId: req.body.playerId || playerId, achievementId: req.body.achievementId || achievementId });
+            if (doc) return res.json(doc);
+        }
+        console.error('Erro em POST /api/achievements:', err);
+        res.status(500).json({ error: 'Erro interno' });
     }
 });
 
