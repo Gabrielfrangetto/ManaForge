@@ -242,55 +242,7 @@ class AchievementSystem {
                 trigger: 'first_player',
                 category: 'Vitória'
             },
-            // NOVOS ACHIEVEMENTS DE COMANDANTE
-            {
-                id: 'commander_removed_5',
-                name: 'Alvo Persistente',
-                description: 'Tenha seu comandante removido 5 vezes',
-                icon: '🎯',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 5,
-                xpReward: 50,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
-            {
-                id: 'commander_removed_10',
-                name: 'Ameaça Constante',
-                description: 'Tenha seu comandante removido 10 vezes',
-                icon: '🛡️',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 10,
-                xpReward: 75,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
-            {
-                id: 'commander_removed_25',
-                name: 'Terror Recorrente',
-                description: 'Tenha seu comandante removido 25 vezes',
-                icon: '💀',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 25,
-                xpReward: 125,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
-            {
-                id: 'commander_removed_50',
-                name: 'Lenda Imortal',
-                description: 'Tenha seu comandante removido 50 vezes',
-                icon: '👑',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 50,
-                xpReward: 200,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
+
             {
                 id: 'win_after_commander_removed_5',
                 name: 'Vingança do Comandante',
@@ -656,28 +608,7 @@ class AchievementSystem {
                     }
                     break;
                     
-                case 'commander_removed_count': {
-                    const removalsArr = 
-                        matchData.playerCommanderRemoved 
-                        || matchData.playerCommanderRemovals 
-                        || matchData.commanderRemoved 
-                        || [];
-                    
-                    const pid = String(playerId);
-                    const thisMatch = removalsArr
-                        .filter(r => String(r?.playerId) === pid)
-                        .reduce((sum, r) => sum + Number(r?.count || 0), 0);
-                    
-                    if (thisMatch > 0) {
-                        // acumula progresso desta partida (serve para 5x, 10x, …)
-                        achievementCopy.progress = (achievementCopy.progress || 0) + thisMatch;
-                        
-                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
-                            shouldUnlock = true;
-                        }
-                    }
-                    break;
-                }
+
             }
             
             if (shouldUnlock) {
@@ -735,13 +666,7 @@ class AchievementSystem {
                     }
                     break;
                     
-                case 'commander_removed_count':
-                    if (achievement.maxProgress > 1) {
-                        achievement.progress = playerStats.commanderRemovals || 0;
-                        shouldUnlock = achievement.progress >= achievement.maxProgress;
-                        console.log(`Conquista ${achievement.name}: progresso ${achievement.progress}/${achievement.maxProgress}`);
-                    }
-                    break;
+
             }
             
             if (shouldUnlock) {

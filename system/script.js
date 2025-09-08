@@ -1047,9 +1047,7 @@ class MagicGameSystem {
                             case 'archenemy_count':
                                 achievement.progress = this.playerData.archenemyCount || 0;
                                 break;
-                            case 'commander_removed_count':
-                                achievement.progress = this.playerData.commanderRemovals || 0;
-                                break;
+
                             case 'match_count':
                                 achievement.progress = this.playerData.totalMatches || 0;
                                 break;
@@ -1937,6 +1935,7 @@ class MagicGameSystem {
         this.updateMissions();
         this.updateMatchHistory();
         this.updateTopCommanders();
+        this.updateGeneralTab();
     }
 
     updatePlayerInfo() {
@@ -5174,6 +5173,54 @@ class MagicGameSystem {
              this.sessionWarningShown = false;
          } else {
              this.logout();
+         }
+     }
+
+     async updateGeneralTab() {
+         try {
+             const response = await fetch(`/api/commander-removed-stats/${this.currentPlayerId}`);
+             if (!response.ok) {
+                 throw new Error('Falha ao carregar estatísticas de comandantes removidos');
+             }
+             
+             const commanderRemovals = await response.json();
+             
+             const container = document.getElementById('commandersRemovalGrid');
+             if (!container) return;
+             
+             if (!commanderRemovals || commanderRemovals.length === 0) {
+                 container.innerHTML = '<div class="empty-commanders">Nenhum comandante foi removido ainda</div>';
+                 return;
+             }
+             
+             container.innerHTML = '';
+             
+             for (const removal of commanderRemovals) {
+                 const removalCard = document.createElement('div');
+                 removalCard.className = 'commander-removal-card';
+                 
+                 const imageUrl = await this.getCardImageUrl(removal.name);
+                 
+                 removalCard.innerHTML = `
+                     <div class="commander-removal-image">
+                         <img src="${imageUrl}" alt="${removal.name}" loading="lazy">
+                     </div>
+                     <div class="commander-removal-info">
+                         <h4>${removal.name}${removal.partnerName ? ` // ${removal.partnerName}` : ''}</h4>
+                         <div class="removal-count">Removido: ${removal.totalRemovals} vezes</div>
+                         <div class="theme">Tema: ${removal.theme}</div>
+                         <div class="matches-played">Partidas: ${removal.matchesPlayed}</div>
+                     </div>
+                 `;
+                 
+                 container.appendChild(removalCard);
+             }
+         } catch (error) {
+             console.error('Erro ao carregar estatísticas de comandantes removidos:', error);
+             const container = document.getElementById('commandersRemovalGrid');
+             if (container) {
+                 container.innerHTML = '<div class="error-message">Erro ao carregar estatísticas</div>';
+             }
          }
      }
 }

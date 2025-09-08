@@ -1941,6 +1941,64 @@ app.post('/api/demo/ranking-xp/:playerId', authenticateToken, requireMaster, asy
     }
 });
 
+// Endpoint para estatísticas de comandantes removidos por jogador
+app.get('/api/commander-removed-stats/:playerId', async (req, res) => {
+    try {
+        const playerId = req.params.playerId;
+        
+        // Buscar todas as partidas onde o jogador participou
+        const matches = await Match.find({
+            $or: [
+                { playerId: new mongoose.Types.ObjectId(playerId) },
+                { 'commanders.playerId': playerId },
+                { winner: new mongoose.Types.ObjectId(playerId) },
+                { firstPlayer: new mongoose.Types.ObjectId(playerId) }
+            ]
+        });
+        
+        const commanderStats = {};
+        
+        // Processar cada partida
+        matches.forEach(match => {
+            // Encontrar o comandante usado pelo jogador nesta partida
+            const playerCommander = match.commanders.find(cmd => cmd.playerId === playerId);
+            
+            if (playerCommander) {
+                const commanderKey = playerCommander.partnerName 
+                    ? `${playerCommander.name} // ${playerCommander.partnerName}`
+                    : playerCommander.name;
+                
+                // Encontrar quantas vezes o comandante foi removido nesta partida
+                const removalData = match.playerCommanderRemoved.find(removal => removal.playerId === playerId);
+                const removalsCount = removalData ? removalData.count : 0;
+                
+                if (!commanderStats[commanderKey]) {
+                    commanderStats[commanderKey] = {
+                        name: playerCommander.name,
+                        partnerName: playerCommander.partnerName,
+                        theme: playerCommander.theme,
+                        totalRemovals: 0,
+                        matchesPlayed: 0
+                    };
+                }
+                
+                commanderStats[commanderKey].totalRemovals += removalsCount;
+                commanderStats[commanderKey].matchesPlayed += 1;
+            }
+        });
+        
+        // Converter para array e ordenar por total de remoções
+        const statsArray = Object.values(commanderStats)
+            .filter(stat => stat.totalRemovals > 0)
+            .sort((a, b) => b.totalRemovals - a.totalRemovals);
+        
+        res.json(statsArray);
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas de comandantes removidos:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
     console.log(`📱 Acesse: http://localhost:${PORT}`);

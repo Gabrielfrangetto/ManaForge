@@ -107,7 +107,8 @@
 
         <!-- Navegação -->
         <nav class="main-nav">
-            <button class="nav-btn active" data-tab="stats">Estatísticas</button>
+            <button class="nav-btn active" data-tab="general">Geral</button>
+            <button class="nav-btn" data-tab="stats">Estatísticas</button>
             <button class="nav-btn" data-tab="achievements">Conquistas</button>
             <button class="nav-btn" data-tab="ranking">Ranking</button>
             <button class="nav-btn" data-tab="missions">Missões</button>
@@ -116,8 +117,20 @@
 
         <!-- Conteúdo Principal -->
         <main class="main-content">
+            <!-- Aba Geral -->
+            <section id="general" class="tab-content active">
+                <div class="general-grid">
+                    <div class="commanders-removal-section">
+                        <h2>💀 Comandantes Removidos</h2>
+                        <div class="commanders-removal-grid" id="commandersRemovalGrid">
+                            <div class="loading-message">Carregando estatísticas de comandantes...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Aba Estatísticas -->
-            <section id="stats" class="tab-content active">
+            <section id="stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Winrate Geral</h3>
