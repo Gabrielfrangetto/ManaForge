@@ -5259,6 +5259,210 @@ class MagicGameSystem {
              }
          }
      }
+
+     // Função para abrir o modal de maestria do comandante
+     openCommanderMasteryModal(mastery, imageUrl) {
+         const modal = document.getElementById('commanderMasteryModal');
+         if (!modal) return;
+
+         // Preencher informações do comandante
+         const commanderImage = modal.querySelector('.mastery-commander-image');
+         const commanderName = modal.querySelector('.mastery-commander-info h2');
+         const commanderType = modal.querySelector('.mastery-commander-info p');
+
+         if (commanderImage) commanderImage.src = imageUrl;
+         if (commanderName) commanderName.textContent = mastery.name;
+         if (commanderType) commanderType.textContent = 'Comandante Lendário';
+
+         // Preencher estatísticas
+         this.populateMasteryStats(modal, mastery);
+
+         // Calcular e exibir níveis
+         this.populateMasteryLevels(modal, mastery);
+
+         // Mostrar modal
+         modal.style.display = 'block';
+
+         // Configurar botão de fechar
+         const closeBtn = modal.querySelector('.mastery-close');
+         if (closeBtn) {
+             closeBtn.onclick = () => {
+                 modal.style.display = 'none';
+             };
+         }
+
+         // Fechar ao clicar fora do modal
+         modal.onclick = (e) => {
+             if (e.target === modal) {
+                 modal.style.display = 'none';
+             }
+         };
+     }
+
+     // Função para preencher as estatísticas do modal
+     populateMasteryStats(modal, mastery) {
+         const statsGrid = modal.querySelector('.mastery-stats-grid');
+         if (!statsGrid) return;
+
+         const winrateValue = parseFloat(mastery.winrate);
+         let winrateClass = 'stat-low';
+         if (winrateValue >= 70) winrateClass = 'stat-high';
+         else if (winrateValue >= 50) winrateClass = 'stat-medium';
+
+         statsGrid.innerHTML = `
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Winrate</div>
+                 <div class="mastery-stat-value ${winrateClass}">${mastery.winrate}%</div>
+             </div>
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Total de Partidas</div>
+                 <div class="mastery-stat-value">${mastery.totalMatches}</div>
+             </div>
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Vitórias</div>
+                 <div class="mastery-stat-value">${mastery.wins}</div>
+             </div>
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Derrotas</div>
+                 <div class="mastery-stat-value">${mastery.totalMatches - mastery.wins}</div>
+             </div>
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Vezes Removido</div>
+                 <div class="mastery-stat-value">${mastery.totalRemovals}x</div>
+             </div>
+             <div class="mastery-stat-card">
+                 <div class="mastery-stat-label">Carta do Jogo</div>
+                 <div class="mastery-stat-value">${mastery.gameCardCount}x</div>
+             </div>
+         `;
+     }
+
+     // Função para calcular e exibir os níveis de maestria
+     populateMasteryLevels(modal, mastery) {
+         const levelsGrid = modal.querySelector('.levels-grid');
+         if (!levelsGrid) return;
+
+         const currentLevel = this.calculateCommanderLevel(mastery);
+         const levelRequirements = this.getLevelRequirements();
+         const rewardTriggers = this.getRewardTriggers();
+
+         levelsGrid.innerHTML = '';
+
+         for (let level = 1; level <= 10; level++) {
+             const levelItem = document.createElement('div');
+             levelItem.className = 'level-item';
+
+             const isUnlocked = level <= currentLevel;
+             const isCurrent = level === currentLevel;
+             const progress = this.calculateLevelProgress(mastery, level);
+
+             if (isUnlocked && !isCurrent) {
+                 levelItem.classList.add('unlocked');
+             } else if (isCurrent) {
+                 levelItem.classList.add('current');
+             } else {
+                 levelItem.classList.add('level-locked');
+             }
+
+             const requirement = levelRequirements[level] || { matches: level * 5, winrate: 0 };
+             const reward = rewardTriggers[level] || 'Recompensa em breve';
+
+             levelItem.innerHTML = `
+                 <div class="level-number">Nível ${level}</div>
+                 <div class="level-progress">
+                     <div class="level-progress-bar" style="width: ${progress}%"></div>
+                 </div>
+                 <div class="level-requirement">
+                     ${requirement.matches} partidas
+                     ${requirement.winrate > 0 ? `, ${requirement.winrate}% winrate` : ''}
+                 </div>
+                 <div class="level-reward">${reward}</div>
+             `;
+
+             levelsGrid.appendChild(levelItem);
+         }
+     }
+
+     // Função para calcular o nível atual do comandante
+     calculateCommanderLevel(mastery) {
+         const matches = mastery.totalMatches;
+         const winrate = parseFloat(mastery.winrate);
+         const gameCards = mastery.gameCardCount;
+
+         // Sistema de níveis baseado em múltiplos critérios
+         let level = 1;
+
+         // Nível baseado em partidas jogadas
+         if (matches >= 50) level = Math.max(level, 10);
+         else if (matches >= 40) level = Math.max(level, 9);
+         else if (matches >= 30) level = Math.max(level, 8);
+         else if (matches >= 25) level = Math.max(level, 7);
+         else if (matches >= 20) level = Math.max(level, 6);
+         else if (matches >= 15) level = Math.max(level, 5);
+         else if (matches >= 10) level = Math.max(level, 4);
+         else if (matches >= 7) level = Math.max(level, 3);
+         else if (matches >= 5) level = Math.max(level, 2);
+
+         // Bônus por performance
+         if (winrate >= 80 && matches >= 10) level = Math.min(10, level + 2);
+         else if (winrate >= 70 && matches >= 5) level = Math.min(10, level + 1);
+
+         // Bônus por cartas do jogo
+         if (gameCards >= 5) level = Math.min(10, level + 1);
+
+         return Math.max(1, Math.min(10, level));
+     }
+
+     // Função para calcular o progresso dentro do nível atual
+     calculateLevelProgress(mastery, level) {
+         const currentLevel = this.calculateCommanderLevel(mastery);
+         
+         if (level < currentLevel) return 100;
+         if (level > currentLevel + 1) return 0;
+         if (level === currentLevel) return 100;
+
+         // Calcular progresso para o próximo nível
+         const requirements = this.getLevelRequirements()[level];
+         if (!requirements) return 0;
+
+         const matchProgress = Math.min(100, (mastery.totalMatches / requirements.matches) * 100);
+         const winrateProgress = requirements.winrate > 0 ? 
+             Math.min(100, (parseFloat(mastery.winrate) / requirements.winrate) * 100) : 100;
+
+         return Math.min(100, Math.min(matchProgress, winrateProgress));
+     }
+
+     // Função para obter os requisitos de cada nível
+     getLevelRequirements() {
+         return {
+             1: { matches: 1, winrate: 0 },
+             2: { matches: 5, winrate: 0 },
+             3: { matches: 7, winrate: 0 },
+             4: { matches: 10, winrate: 0 },
+             5: { matches: 15, winrate: 0 },
+             6: { matches: 20, winrate: 50 },
+             7: { matches: 25, winrate: 55 },
+             8: { matches: 30, winrate: 60 },
+             9: { matches: 40, winrate: 65 },
+             10: { matches: 50, winrate: 70 }
+         };
+     }
+
+     // Função para obter os triggers de recompensas
+     getRewardTriggers() {
+         return {
+             1: '🎯 Título: "Iniciante"',
+             2: '🖼️ Frame: Bronze',
+             3: '🎭 Avatar: Aprendiz',
+             4: '🏆 Título: "Dedicado"',
+             5: '🖼️ Frame: Prata',
+             6: '🎭 Avatar: Veterano',
+             7: '🏆 Título: "Especialista"',
+             8: '🖼️ Frame: Ouro',
+             9: '🎭 Avatar: Mestre',
+             10: '👑 Título: "Lenda" + Frame Especial'
+         };
+     }
 }
 
 // Adicionar estilos para animações
