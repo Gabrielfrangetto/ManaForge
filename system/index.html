@@ -858,115 +858,49 @@
                     </div>
                 </div>
 
-                <!-- Sistema de Níveis -->
-                <div class="mastery-levels-section">
+                <!-- Sistema de Tiers -->
+                <div class="mastery-tiers-section">
                     <h3>⭐ Progresso de Maestria</h3>
-                    <div class="level-progress-container">
-                        <div class="current-level-info">
-                            <span>Nível <span id="currentLevelDisplay">1</span></span>
-                            <span class="level-progress-text">
-                                <span id="currentLevelPoints">0</span> / <span id="nextLevelPoints">10</span> pontos
-                            </span>
-                        </div>
-                        <div class="level-progress-bar">
-                            <div id="levelProgressFill" class="level-progress-fill"></div>
-                        </div>
+                    <div class="current-tier-info">
+                        <span>Tier Atual: <span id="currentTierDisplay">Spark</span></span>
+                        <span class="tier-progress-text">
+                            <span id="currentTierProgress">0</span>% para próximo tier
+                        </span>
                     </div>
                     
-                    <!-- Grade de Níveis -->
-                    <div class="levels-grid">
-                        <div class="levels-row">
-                            <div class="level-item" data-level="1">
-                                <div class="level-circle">
-                                    <span class="level-num">1</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🏅</span>
-                                    <span class="reward-text">Iniciante</span>
-                                </div>
-                            </div>
-                            <div class="level-item" data-level="2">
-                                <div class="level-circle">
-                                    <span class="level-num">2</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🎖️</span>
-                                    <span class="reward-text">Aprendiz</span>
-                                </div>
-                            </div>
-                            <div class="level-item" data-level="3">
-                                <div class="level-circle">
-                                    <span class="level-num">3</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🏆</span>
-                                    <span class="reward-text">Competente</span>
-                                </div>
-                            </div>
-                            <div class="level-item" data-level="4">
-                                <div class="level-circle">
-                                    <span class="level-num">4</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">⚔️</span>
-                                    <span class="reward-text">Veterano</span>
-                                </div>
-                            </div>
-                            <div class="level-item" data-level="5">
-                                <div class="level-circle">
-                                    <span class="level-num">5</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">👑</span>
-                                    <span class="reward-text">Especialista</span>
-                                </div>
-                            </div>
+                    <!-- Barra de Progresso Contínua -->
+                    <div class="tier-progress-container">
+                        <div class="tier-progress-line">
+                            <div id="tierProgressFill" class="tier-progress-fill"></div>
                         </div>
-                        <div class="levels-row">
-                            <div class="level-item" data-level="6">
-                                <div class="level-circle">
-                                    <span class="level-num">6</span>
+                        <div class="tier-markers">
+                            <div class="tier-marker" data-tier="spark">
+                                <div class="tier-circle spark">
+                                    <span class="tier-icon">⚡</span>
                                 </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">💎</span>
-                                    <span class="reward-text">Mestre</span>
-                                </div>
+                                <div class="tier-label">Spark</div>
+                                <div class="tier-requirement">1+ partida</div>
                             </div>
-                            <div class="level-item" data-level="7">
-                                <div class="level-circle">
-                                    <span class="level-num">7</span>
+                            <div class="tier-marker" data-tier="ember">
+                                <div class="tier-circle ember">
+                                    <span class="tier-icon">🔥</span>
                                 </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🌟</span>
-                                    <span class="reward-text">Campeão</span>
-                                </div>
+                                <div class="tier-label">Ember</div>
+                                <div class="tier-requirement">25 vitórias + 1 carta</div>
                             </div>
-                            <div class="level-item" data-level="8">
-                                <div class="level-circle">
-                                    <span class="level-num">8</span>
+                            <div class="tier-marker" data-tier="lord">
+                                <div class="tier-circle lord">
+                                    <span class="tier-icon">👑</span>
                                 </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🔥</span>
-                                    <span class="reward-text">Lenda</span>
-                                </div>
+                                <div class="tier-label">Lord</div>
+                                <div class="tier-requirement">50 vitórias + 5 cartas</div>
                             </div>
-                            <div class="level-item" data-level="9">
-                                <div class="level-circle">
-                                    <span class="level-num">9</span>
+                            <div class="tier-marker" data-tier="titan">
+                                <div class="tier-circle titan">
+                                    <span class="tier-icon">🌌</span>
                                 </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">⚡</span>
-                                    <span class="reward-text">Mítico</span>
-                                </div>
-                            </div>
-                            <div class="level-item" data-level="10">
-                                <div class="level-circle">
-                                    <span class="level-num">10</span>
-                                </div>
-                                <div class="level-reward">
-                                    <span class="reward-icon">🌌</span>
-                                    <span class="reward-text">Transcendente</span>
-                                </div>
+                                <div class="tier-label">Titan</div>
+                                <div class="tier-requirement">75 vitórias + 50% WR + 10 cartas</div>
                             </div>
                         </div>
                     </div>

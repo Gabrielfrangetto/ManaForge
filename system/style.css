@@ -5385,9 +5385,9 @@ input.selected {
 }
 
 .mastery-commander-image {
-    width: 80px;
-    height: 80px;
-    border-radius: 10px;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
     border: 2px solid #ffd700;
     object-fit: cover;
 }
@@ -5459,11 +5459,11 @@ input.selected {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-.mastery-levels-section {
+.mastery-tiers-section {
     margin-top: 2rem;
 }
 
-.mastery-levels-section h3 {
+.mastery-tiers-section h3 {
     color: #ffd700;
     margin-bottom: 1rem;
     text-align: center;
@@ -5471,91 +5471,150 @@ input.selected {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.levels-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
-}
-
-.level-item {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 215, 0, 0.3);
-    border-radius: 10px;
+.current-tier-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
     padding: 1rem;
-    text-align: center;
-    position: relative;
-    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
-.level-item.unlocked {
-    border-color: #ffd700;
-    background: rgba(255, 215, 0, 0.1);
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-}
-
-.level-item.current {
-    border-color: #00ff88;
-    background: rgba(0, 255, 136, 0.1);
-    box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
-}
-
-.level-number {
-    font-size: 1.2rem;
-    font-weight: bold;
+.current-tier-info span {
     color: #ffd700;
-    margin-bottom: 0.5rem;
+    font-weight: bold;
 }
 
-.level-progress {
+.tier-progress-text {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+}
+
+.tier-progress-container {
+    position: relative;
+    margin: 2rem 0;
+}
+
+.tier-progress-line {
     width: 100%;
-    height: 8px;
+    height: 6px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
+    border-radius: 3px;
+    position: relative;
+    margin-bottom: 2rem;
 }
 
-.level-progress-bar {
+.tier-progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #ffd700, #ffed4e);
-    border-radius: 4px;
+    border-radius: 3px;
     transition: width 0.5s ease;
+    width: 25%;
 }
 
-.level-requirement {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 0.5rem;
+.tier-markers {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    position: relative;
 }
 
-.level-reward {
-    font-size: 0.8rem;
-    color: #00ff88;
-    font-weight: bold;
-    min-height: 2rem;
+.tier-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    flex: 1;
+    position: relative;
+}
+
+.tier-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-bottom: 0.5rem;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 2;
 }
 
-.level-locked {
-    opacity: 0.5;
+.tier-circle.spark {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.2);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
-.level-locked .level-number {
+.tier-circle.ember {
+    border-color: #ff6b35;
+    background: rgba(255, 107, 53, 0.2);
+}
+
+.tier-circle.lord {
+    border-color: #9b59b6;
+    background: rgba(155, 89, 182, 0.2);
+}
+
+.tier-circle.titan {
+    border-color: #e74c3c;
+    background: rgba(231, 76, 60, 0.2);
+}
+
+.tier-circle.unlocked {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    transform: scale(1.1);
+}
+
+.tier-icon {
+    font-size: 1.5rem;
+    color: #ffd700;
+}
+
+.tier-label {
+    color: #ffd700;
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+    font-size: 1rem;
+}
+
+.tier-requirement {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 120px;
+}
+
+@keyframes tierUnlock {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1.1); }
+}
+
+.tier-circle.just-unlocked {
+    animation: tierUnlock 0.8s ease-in-out;
+}
+
+.tier-marker.locked .tier-circle {
+    opacity: 0.4;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tier-marker.locked .tier-icon {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.tier-marker.locked .tier-label {
     color: rgba(255, 255, 255, 0.5);
 }
 
-.level-locked .level-progress-bar {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-@keyframes levelUnlock {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-.level-item.just-unlocked {
-    animation: levelUnlock 0.6s ease-in-out;
+.tier-marker.locked .tier-requirement {
+    color: rgba(255, 255, 255, 0.4);
 }
