@@ -5387,7 +5387,7 @@ input.selected {
     text-align: center;
 }
 
-.mastery-commander-image {
+#masteryCommanderImage {
     width: 45px;
     height: 45px;
     border-radius: 6px;
