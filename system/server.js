@@ -1975,8 +1975,9 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
                 const removalData = match.playerCommanderRemoved.find(removal => removal.playerId === playerId);
                 const removalsCount = removalData ? removalData.count : 0;
                 
-                // Verificar se o comandante foi carta do jogo
+                // Verificar se o comandante foi carta do jogo E pertence ao jogador específico
                 const isGameCard = match.gameCard && 
+                    match.gameCard.playerId === playerId &&
                     (match.gameCard.name === playerCommander.name || 
                      (playerCommander.partnerName && match.gameCard.name === playerCommander.partnerName));
                 
