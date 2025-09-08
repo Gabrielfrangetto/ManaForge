@@ -5266,9 +5266,9 @@ class MagicGameSystem {
          if (!modal) return;
 
          // Preencher informações do comandante
-         const commanderImage = modal.querySelector('.mastery-commander-image');
-         const commanderName = modal.querySelector('.mastery-commander-info h2');
-         const commanderType = modal.querySelector('.mastery-commander-info p');
+         const commanderImage = modal.querySelector('#masteryCommanderImage');
+         const commanderName = modal.querySelector('#masteryCommanderName');
+         const commanderType = modal.querySelector('.commander-title-info p');
 
          if (commanderImage) commanderImage.src = imageUrl;
          if (commanderName) commanderName.textContent = mastery.name;
@@ -5301,52 +5301,56 @@ class MagicGameSystem {
 
      // Função para preencher as estatísticas do modal
      populateMasteryStats(modal, mastery) {
-         const statsGrid = modal.querySelector('.mastery-stats-grid');
-         if (!statsGrid) return;
+         // Atualizar elementos específicos usando IDs
+         const winrateElement = modal.querySelector('#masteryWinrate');
+         const matchesElement = modal.querySelector('#masteryMatches');
+         const winsElement = modal.querySelector('#masteryWins');
+         const removalsElement = modal.querySelector('#masteryRemovals');
+         const gameCardElement = modal.querySelector('#masteryGameCard');
 
-         const winrateValue = parseFloat(mastery.winrate);
-         let winrateClass = 'stat-low';
-         if (winrateValue >= 70) winrateClass = 'stat-high';
-         else if (winrateValue >= 50) winrateClass = 'stat-medium';
-
-         statsGrid.innerHTML = `
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Winrate</div>
-                 <div class="mastery-stat-value ${winrateClass}">${mastery.winrate}%</div>
-             </div>
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Total de Partidas</div>
-                 <div class="mastery-stat-value">${mastery.totalMatches}</div>
-             </div>
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Vitórias</div>
-                 <div class="mastery-stat-value">${mastery.wins}</div>
-             </div>
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Derrotas</div>
-                 <div class="mastery-stat-value">${mastery.totalMatches - mastery.wins}</div>
-             </div>
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Vezes Removido</div>
-                 <div class="mastery-stat-value">${mastery.totalRemovals}x</div>
-             </div>
-             <div class="mastery-stat-card">
-                 <div class="mastery-stat-label">Carta do Jogo</div>
-                 <div class="mastery-stat-value">${mastery.gameCardCount}x</div>
-             </div>
-         `;
+         if (winrateElement) winrateElement.textContent = `${mastery.winrate}%`;
+         if (matchesElement) matchesElement.textContent = mastery.totalMatches;
+         if (winsElement) winsElement.textContent = mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate) / 100);
+         if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
+         if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
      }
 
      // Função para calcular e exibir os níveis de maestria
      populateMasteryLevels(modal, mastery) {
-         const levelsGrid = modal.querySelector('.levels-grid');
-         if (!levelsGrid) return;
-
          const currentLevel = this.calculateCommanderLevel(mastery);
-         const levelRequirements = this.getLevelRequirements();
-         const rewardTriggers = this.getRewardTriggers();
-
-         levelsGrid.innerHTML = '';
+         const levelProgress = this.calculateLevelProgress(mastery, currentLevel);
+         
+         // Atualizar informações do nível atual
+         const currentLevelDisplay = modal.querySelector('#currentLevelDisplay');
+         const currentLevelPoints = modal.querySelector('#currentLevelPoints');
+         const nextLevelPoints = modal.querySelector('#nextLevelPoints');
+         const levelProgressFill = modal.querySelector('#levelProgressFill');
+         const commanderCurrentLevel = modal.querySelector('#commanderCurrentLevel');
+         
+         if (currentLevelDisplay) currentLevelDisplay.textContent = currentLevel;
+         if (commanderCurrentLevel) commanderCurrentLevel.textContent = currentLevel;
+         if (currentLevelPoints) currentLevelPoints.textContent = levelProgress.current;
+         if (nextLevelPoints) nextLevelPoints.textContent = levelProgress.required;
+         if (levelProgressFill) {
+             const progressPercent = (levelProgress.current / levelProgress.required) * 100;
+             levelProgressFill.style.width = `${Math.min(progressPercent, 100)}%`;
+         }
+         
+         // Atualizar os círculos de nível
+         const levelItems = modal.querySelectorAll('.level-item');
+         levelItems.forEach((item, index) => {
+             const level = index + 1;
+             const levelCircle = item.querySelector('.level-circle');
+             
+             if (level <= currentLevel) {
+                 item.classList.add('unlocked');
+                 if (level === currentLevel) {
+                     item.classList.add('current');
+                 }
+             } else {
+                 item.classList.add('level-locked');
+             }
+         });
 
          for (let level = 1; level <= 10; level++) {
              const levelItem = document.createElement('div');

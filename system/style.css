@@ -5359,12 +5359,6 @@ input.selected {
     backdrop-filter: blur(5px);
 }
 
-#commanderMasteryModal {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
 .mastery-modal-content {
     position: absolute;
     top: 50%;
