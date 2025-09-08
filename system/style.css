@@ -5131,3 +5131,87 @@ input.selected {
 .load-more-featured:active {
     transform: translateY(0) translateZ(0);
 }
+
+/* Estilos para comandantes removidos na aba Geral */
+.commander-removal-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.commander-removal-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.commander-removal-image {
+    position: relative;
+    margin-bottom: 0.8rem;
+}
+
+.commander-removal-image img {
+    width: 83px;  /* 60% menor que 208px */
+    height: 116px; /* 60% menor que 290px */
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+    filter: brightness(1.1) contrast(1.1);
+}
+
+.commander-removal-image:hover img {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(255, 140, 0, 0.4);
+    filter: brightness(1.15) contrast(1.05);
+}
+
+.commander-removal-info {
+    text-align: center;
+    width: 100%;
+}
+
+.commander-removal-info h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+.commander-removal-info .removal-count {
+    font-size: 0.8rem;
+    color: #ff8c00;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.commander-removal-info .theme {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.3rem;
+}
+
+.commander-removal-info .matches-played {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+#commandersRemovalGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.empty-commanders, .error-message {
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
+}
