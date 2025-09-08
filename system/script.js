@@ -5181,46 +5181,71 @@ class MagicGameSystem {
 
      async updateGeneralTab() {
          try {
-             const response = await fetch(`/api/commander-removed-stats/${this.currentPlayerId}`);
+             const response = await fetch(`/api/commander-mastery-stats/${this.currentPlayerId}`);
              if (!response.ok) {
-                 throw new Error('Falha ao carregar estatísticas de comandantes removidos');
+                 throw new Error('Falha ao carregar estatísticas de maestria de comandantes');
              }
              
-             const commanderRemovals = await response.json();
+             const commanderMastery = await response.json();
              
-             const container = document.getElementById('commandersRemovalGrid');
+             const container = document.getElementById('commanderMasteryGrid');
              if (!container) return;
              
-             if (!commanderRemovals || commanderRemovals.length === 0) {
-                 container.innerHTML = '<div class="empty-commanders">Nenhum comandante foi removido ainda</div>';
+             if (!commanderMastery || commanderMastery.length === 0) {
+                 container.innerHTML = '<div class="empty-commanders">Nenhum comandante jogado ainda</div>';
                  return;
              }
              
              container.innerHTML = '';
              
-             for (const removal of commanderRemovals) {
-                 const removalCard = document.createElement('div');
-                 removalCard.className = 'commander-removal-card';
+             for (const mastery of commanderMastery) {
+                 const masteryCard = document.createElement('div');
+                 masteryCard.className = 'commander-mastery-card';
                  
-                 const imageUrl = await this.getCardImageUrl(removal.name);
+                 const imageUrl = await this.getCardImageUrl(mastery.name);
                  
-                 removalCard.innerHTML = `
-                     <div class="commander-removal-image">
-                         <img src="${imageUrl}" alt="${removal.name}" loading="lazy">
+                 // Determinar classe do winrate baseado na porcentagem
+                 const winrateValue = parseFloat(mastery.winrate);
+                 let winrateClass = 'winrate-low';
+                 if (winrateValue >= 70) winrateClass = 'winrate-high';
+                 else if (winrateValue >= 50) winrateClass = 'winrate-medium';
+                 
+                 masteryCard.innerHTML = `
+                     <div class="commander-mastery-image">
+                         <img src="${imageUrl}" alt="${mastery.name}" loading="lazy">
                      </div>
-                     <div class="commander-removal-info">
-                         <h4>${removal.name}${removal.partnerName ? ` // ${removal.partnerName}` : ''}</h4>
-                         <div class="removal-count">Removido: ${removal.totalRemovals} vezes</div>
-                         <div class="theme">Tema: ${removal.theme}</div>
-                         <div class="matches-played">Partidas: ${removal.matchesPlayed}</div>
+                     <div class="commander-mastery-info">
+                         <h4>${mastery.name}</h4>
+                         <div class="mastery-stats">
+                             <div class="stat-item">
+                                 <span class="stat-label">Winrate:</span>
+                                 <span class="stat-value ${winrateClass}">${mastery.winrate}%</span>
+                             </div>
+                             <div class="stat-item">
+                                 <span class="stat-label">Partidas:</span>
+                                 <span class="stat-value">${mastery.totalMatches}</span>
+                             </div>
+                             <div class="stat-item">
+                                 <span class="stat-label">Vitórias:</span>
+                                 <span class="stat-value">${mastery.wins}</span>
+                             </div>
+                             <div class="stat-item">
+                                 <span class="stat-label">Removido:</span>
+                                 <span class="stat-value">${mastery.totalRemovals}x</span>
+                             </div>
+                             <div class="stat-item">
+                                 <span class="stat-label">Carta do Jogo:</span>
+                                 <span class="stat-value">${mastery.gameCardCount}x</span>
+                             </div>
+                         </div>
                      </div>
                  `;
                  
-                 container.appendChild(removalCard);
+                 container.appendChild(masteryCard);
              }
          } catch (error) {
-             console.error('Erro ao carregar estatísticas de comandantes removidos:', error);
-             const container = document.getElementById('commandersRemovalGrid');
+             console.error('Erro ao carregar estatísticas de maestria de comandantes:', error);
+             const container = document.getElementById('commanderMasteryGrid');
              if (container) {
                  container.innerHTML = '<div class="error-message">Erro ao carregar estatísticas</div>';
              }

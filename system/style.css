@@ -5209,6 +5209,136 @@ input.selected {
     padding: 1rem;
 }
 
+/* Estilos para maestria de comandantes na aba Maestria */
+.commander-mastery-section {
+    width: 100%;
+    margin-bottom: 2rem;
+}
+
+.commander-mastery-section h3 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.mastery-description {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.mastery-description p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+#commanderMasteryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.2rem;
+    padding: 1rem;
+}
+
+.commander-mastery-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+    border-radius: 15px;
+    padding: 1.2rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+.commander-mastery-card:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 140, 0, 0.3);
+}
+
+.commander-mastery-image {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.commander-mastery-image img {
+    width: 90px;
+    height: 125px;
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+    transition: all 0.3s ease;
+    filter: brightness(1.1) contrast(1.1);
+}
+
+.commander-mastery-image:hover img {
+    transform: scale(1.05);
+    box-shadow: 0 10px 25px rgba(255, 140, 0, 0.5);
+    filter: brightness(1.2) contrast(1.05);
+}
+
+.commander-mastery-info {
+    text-align: center;
+    width: 100%;
+}
+
+.commander-mastery-info h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #ffffff;
+    line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.mastery-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.winrate-high {
+    color: #4ade80 !important;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+}
+
+.winrate-medium {
+    color: #fbbf24 !important;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
+}
+
+.winrate-low {
+    color: #f87171 !important;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
+}
+
 .empty-commanders, .error-message {
     text-align: center;
     padding: 2rem;

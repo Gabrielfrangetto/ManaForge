@@ -1942,6 +1942,77 @@ app.post('/api/demo/ranking-xp/:playerId', authenticateToken, requireMaster, asy
 });
 
 // Endpoint para estatísticas de comandantes removidos por jogador
+// Endpoint para estatísticas de maestria por comandante único
+app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
+    try {
+        const playerId = req.params.playerId;
+        
+        // Buscar todas as partidas onde o jogador participou
+        const matches = await Match.find({
+            $or: [
+                { playerId: new mongoose.Types.ObjectId(playerId) },
+                { 'commanders.playerId': playerId },
+                { winner: new mongoose.Types.ObjectId(playerId) },
+                { firstPlayer: new mongoose.Types.ObjectId(playerId) }
+            ]
+        });
+        
+        const commanderStats = {};
+        
+        // Processar cada partida
+        matches.forEach(match => {
+            // Encontrar o comandante usado pelo jogador nesta partida
+            const playerCommander = match.commanders.find(cmd => cmd.playerId === playerId);
+            
+            if (playerCommander) {
+                // Usar apenas o nome do comandante (sem partner) como chave única
+                const commanderKey = playerCommander.name;
+                
+                // Verificar se foi vitória
+                const isWin = match.winner.toString() === playerId || match.winner === playerId;
+                
+                // Encontrar quantas vezes o comandante foi removido nesta partida
+                const removalData = match.playerCommanderRemoved.find(removal => removal.playerId === playerId);
+                const removalsCount = removalData ? removalData.count : 0;
+                
+                // Verificar se o comandante foi carta do jogo
+                const isGameCard = match.gameCard && 
+                    (match.gameCard.name === playerCommander.name || 
+                     (playerCommander.partnerName && match.gameCard.name === playerCommander.partnerName));
+                
+                if (!commanderStats[commanderKey]) {
+                    commanderStats[commanderKey] = {
+                        name: playerCommander.name,
+                        totalMatches: 0,
+                        wins: 0,
+                        totalRemovals: 0,
+                        gameCardCount: 0
+                    };
+                }
+                
+                commanderStats[commanderKey].totalMatches += 1;
+                if (isWin) commanderStats[commanderKey].wins += 1;
+                commanderStats[commanderKey].totalRemovals += removalsCount;
+                if (isGameCard) commanderStats[commanderKey].gameCardCount += 1;
+            }
+        });
+        
+        // Converter para array, calcular winrate e ordenar por total de partidas
+        const statsArray = Object.values(commanderStats)
+            .map(stat => ({
+                ...stat,
+                winrate: stat.totalMatches > 0 ? ((stat.wins / stat.totalMatches) * 100).toFixed(1) : '0.0'
+            }))
+            .sort((a, b) => b.totalMatches - a.totalMatches);
+        
+        res.json(statsArray);
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas de maestria de comandantes:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Endpoint legado para comandantes removidos (mantido para compatibilidade)
 app.get('/api/commander-removed-stats/:playerId', async (req, res) => {
     try {
         const playerId = req.params.playerId;
