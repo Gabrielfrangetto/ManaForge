@@ -5345,3 +5345,217 @@ input.selected {
     color: rgba(255, 255, 255, 0.7);
     font-style: italic;
 }
+
+/* Commander Mastery Modal */
+.commander-mastery-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.mastery-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid #ffd700;
+    border-radius: 15px;
+    padding: 2rem;
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.mastery-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #ffd700;
+}
+
+.mastery-commander-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
+    border: 2px solid #ffd700;
+    object-fit: cover;
+}
+
+.mastery-commander-info h2 {
+    color: #ffd700;
+    margin: 0;
+    font-size: 1.8rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.mastery-commander-info p {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0.5rem 0 0 0;
+    font-size: 1rem;
+}
+
+.mastery-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: #ffd700;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.mastery-close:hover {
+    background: rgba(255, 215, 0, 0.2);
+    transform: scale(1.1);
+}
+
+.mastery-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.mastery-stat-card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.mastery-stat-card:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: #ffd700;
+    transform: translateY(-2px);
+}
+
+.mastery-stat-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.mastery-stat-value {
+    color: #ffd700;
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.mastery-levels-section {
+    margin-top: 2rem;
+}
+
+.mastery-levels-section h3 {
+    color: #ffd700;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 1.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.level-item {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.level-item.unlocked {
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.level-item.current {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+}
+
+.level-number {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 0.5rem;
+}
+
+.level-progress {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.level-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd700, #ffed4e);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.level-requirement {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.5rem;
+}
+
+.level-reward {
+    font-size: 0.8rem;
+    color: #00ff88;
+    font-weight: bold;
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.level-locked {
+    opacity: 0.5;
+}
+
+.level-locked .level-number {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.level-locked .level-progress-bar {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes levelUnlock {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.level-item.just-unlocked {
+    animation: levelUnlock 0.6s ease-in-out;
+}

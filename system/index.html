@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mana Forge - EDH Match and Profile Gamification</title>
+    <title>Mana Forge - Commander Gamification</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
@@ -797,7 +797,197 @@
             </form>
         </div>
     </div>
+
+    <!-- Modal de Maestria de Comandante -->
+    <div id="commanderMasteryModal" class="modal">
+        <div class="modal-content commander-mastery-modal-content">
+            <span class="close commander-mastery-close">&times;</span>
+            <div class="commander-mastery-header">
+                <div class="commander-image-large">
+                    <img id="masteryCommanderImage" src="" alt="">
+                </div>
+                <div class="commander-title-info">
+                    <h2 id="masteryCommanderName"></h2>
+                    <div class="commander-level-badge">
+                        <span class="level-text">Nível</span>
+                        <span id="commanderCurrentLevel" class="level-number">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="commander-mastery-body">
+                <!-- Estatísticas Atuais -->
+                <div class="mastery-stats-section">
+                    <h3>📊 Estatísticas</h3>
+                    <div class="mastery-stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Winrate</span>
+                                <span id="masteryWinrate" class="stat-value">0%</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⚔️</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Partidas</span>
+                                <span id="masteryMatches" class="stat-value">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Vitórias</span>
+                                <span id="masteryWins" class="stat-value">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">💀</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Removido</span>
+                                <span id="masteryRemovals" class="stat-value">0x</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🃏</div>
+                            <div class="stat-info">
+                                <span class="stat-label">Carta do Jogo</span>
+                                <span id="masteryGameCard" class="stat-value">0x</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sistema de Níveis -->
+                <div class="mastery-levels-section">
+                    <h3>⭐ Progresso de Maestria</h3>
+                    <div class="level-progress-container">
+                        <div class="current-level-info">
+                            <span>Nível <span id="currentLevelDisplay">1</span></span>
+                            <span class="level-progress-text">
+                                <span id="currentLevelPoints">0</span> / <span id="nextLevelPoints">10</span> pontos
+                            </span>
+                        </div>
+                        <div class="level-progress-bar">
+                            <div id="levelProgressFill" class="level-progress-fill"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Grade de Níveis -->
+                    <div class="levels-grid">
+                        <div class="levels-row">
+                            <div class="level-item" data-level="1">
+                                <div class="level-circle">
+                                    <span class="level-num">1</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🏅</span>
+                                    <span class="reward-text">Iniciante</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="2">
+                                <div class="level-circle">
+                                    <span class="level-num">2</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🎖️</span>
+                                    <span class="reward-text">Aprendiz</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="3">
+                                <div class="level-circle">
+                                    <span class="level-num">3</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🏆</span>
+                                    <span class="reward-text">Competente</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="4">
+                                <div class="level-circle">
+                                    <span class="level-num">4</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">⚔️</span>
+                                    <span class="reward-text">Veterano</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="5">
+                                <div class="level-circle">
+                                    <span class="level-num">5</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">👑</span>
+                                    <span class="reward-text">Especialista</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="levels-row">
+                            <div class="level-item" data-level="6">
+                                <div class="level-circle">
+                                    <span class="level-num">6</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">💎</span>
+                                    <span class="reward-text">Mestre</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="7">
+                                <div class="level-circle">
+                                    <span class="level-num">7</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🌟</span>
+                                    <span class="reward-text">Campeão</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="8">
+                                <div class="level-circle">
+                                    <span class="level-num">8</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🔥</span>
+                                    <span class="reward-text">Lenda</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="9">
+                                <div class="level-circle">
+                                    <span class="level-num">9</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">⚡</span>
+                                    <span class="reward-text">Mítico</span>
+                                </div>
+                            </div>
+                            <div class="level-item" data-level="10">
+                                <div class="level-circle">
+                                    <span class="level-num">10</span>
+                                </div>
+                                <div class="level-reward">
+                                    <span class="reward-icon">🌌</span>
+                                    <span class="reward-text">Transcendente</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção de Recompensas Futuras -->
+                <div class="mastery-rewards-section">
+                    <h3>🎁 Próximas Recompensas</h3>
+                    <div class="next-rewards-container">
+                        <div class="next-reward-item">
+                            <div class="reward-level">Nível <span id="nextRewardLevel">2</span></div>
+                            <div class="reward-description">
+                                <span class="reward-type">Título:</span>
+                                <span id="nextRewardTitle">"Aprendiz de [Comandante]"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
-

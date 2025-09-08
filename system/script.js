@@ -5241,6 +5241,14 @@ class MagicGameSystem {
                      </div>
                  `;
                  
+                 // Adicionar event listener para abrir o modal
+                 masteryCard.addEventListener('click', () => {
+                     this.openCommanderMasteryModal(mastery, imageUrl);
+                 });
+                 
+                 // Adicionar cursor pointer para indicar que é clicável
+                 masteryCard.style.cursor = 'pointer';
+                 
                  container.appendChild(masteryCard);
              }
          } catch (error) {
