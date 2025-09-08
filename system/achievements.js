@@ -906,8 +906,14 @@ class AchievementSystem {
                         }
                     });
                     
-                    // Achievements desbloqueados automaticamente não são mais salvos aqui
-                    // para evitar sobrescrever datas corretas com new Date()
+                    // Salvar achievements desbloqueados automaticamente com data atual
+                    for (const achievement of achievementsToSave) {
+                        try {
+                            await this.saveAchievement(playerId, achievement, new Date());
+                        } catch (error) {
+                            console.error('Erro ao salvar achievement automático:', achievement.id, error);
+                        }
+                    }
                 }
             } catch (statsError) {
                 console.error('Erro ao carregar estatísticas para progresso das conquistas:', statsError);
