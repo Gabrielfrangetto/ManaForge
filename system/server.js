@@ -1977,7 +1977,7 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
                 
                 // Verificar se o comandante foi carta do jogo E pertence ao jogador específico
                 const isGameCard = match.gameCard && 
-                    match.gameCard.playerId === playerId &&
+                    match.gameCard.ownerId === playerId &&
                     (match.gameCard.name === playerCommander.name || 
                      (playerCommander.partnerName && match.gameCard.name === playerCommander.partnerName));
                 
