@@ -244,18 +244,6 @@ class AchievementSystem {
             },
             // NOVOS ACHIEVEMENTS DE COMANDANTE
             {
-                id: 'commander_removed_1',
-                name: 'Primeira Queda',
-                description: 'Tenha seu comandante removido 1 vez',
-                icon: '⚔️',
-                unlocked: false,
-                progress: 0,
-                maxProgress: 1,
-                xpReward: 25,
-                trigger: 'commander_removed_count',
-                category: 'Comandante'
-            },
-            {
                 id: 'commander_removed_5',
                 name: 'Alvo Persistente',
                 description: 'Tenha seu comandante removido 5 vezes',
@@ -680,24 +668,11 @@ class AchievementSystem {
                         .filter(r => String(r?.playerId) === pid)
                         .reduce((sum, r) => sum + Number(r?.count || 0), 0);
                     
-                    // Log de debug para validar detecção do MASTER
-                    console.log('=== DEBUG COMMANDER_REMOVED_COUNT ===');
-                    console.log('playerId:', playerId, 'tipo:', typeof playerId);
-                    console.log('pid (String):', pid);
-                    console.log('removalsArr:', removalsArr);
-                    console.log('thisMatch:', thisMatch);
-                    console.log('achievement:', achievementCopy.name, 'maxProgress:', achievementCopy.maxProgress);
-                    console.log('====================================');
-                    
                     if (thisMatch > 0) {
                         // acumula progresso desta partida (serve para 5x, 10x, …)
                         achievementCopy.progress = (achievementCopy.progress || 0) + thisMatch;
                         
-                        if (achievementCopy.maxProgress === 1) {
-                            // "Primeira Queda" – desbloqueio imediato
-                            achievementCopy.progress = 1;
-                            shouldUnlock = true;
-                        } else if (achievementCopy.progress >= achievementCopy.maxProgress) {
+                        if (achievementCopy.progress >= achievementCopy.maxProgress) {
                             shouldUnlock = true;
                         }
                     }
@@ -887,11 +862,13 @@ class AchievementSystem {
                                     }
                                     break;
                                 case 'commander_removed_count':
-                                    achievement.progress = playerStats.commanderRemovals || 0;
-                                    // CORREÇÃO: Não ignorar achievement de maxProgress = 1
-                                    if (achievement.progress >= achievement.maxProgress) {
-                                        achievement.unlocked = true;
-                                        achievementsToSave.push(achievement);
+                                    // só trate acumulativos (>=5, >=10, etc.)
+                                    if (achievement.maxProgress > 1) {
+                                        achievement.progress = playerStats.commanderRemovals || 0;
+                                        if (achievement.progress >= achievement.maxProgress) {
+                                            achievement.unlocked = true;
+                                            achievementsToSave.push(achievement);
+                                        }
                                     }
                                     break;
                                 case 'match_count':
@@ -906,14 +883,8 @@ class AchievementSystem {
                         }
                     });
                     
-                    // Salvar achievements desbloqueados automaticamente com data atual
-                    for (const achievement of achievementsToSave) {
-                        try {
-                            await this.saveAchievement(playerId, achievement, new Date());
-                        } catch (error) {
-                            console.error('Erro ao salvar achievement automático:', achievement.id, error);
-                        }
-                    }
+                    // Achievements desbloqueados automaticamente não são mais salvos aqui
+                    // para evitar sobrescrever datas corretas com new Date()
                 }
             } catch (statsError) {
                 console.error('Erro ao carregar estatísticas para progresso das conquistas:', statsError);
@@ -962,7 +933,7 @@ class AchievementSystem {
             }
         }
         
-        // "Primeira Queda" agora é tratada em checkMatchAchievements
+
         
         // Deduplicar: priorizar achievements da PARTIDA sobre os de estatística
         const map = new Map();
@@ -971,15 +942,7 @@ class AchievementSystem {
         
         const allUnlocked = [...map.values()];
         
-        // Hotfix para contas já travadas em 1/1 sem desbloquear
-        const heal = this.achievements.find(a => a.id === 'commander_removed_1');
-        if (heal && !heal.unlocked && (heal.progress || 0) >= 1) {
-            console.log('Hotfix: desbloqueando "Primeira Queda" para conta travada em 1/1');
-            const healedAchievement = { ...heal, progress: 1, unlocked: true };
-            if (!allUnlocked.find(a => a.id === 'commander_removed_1')) {
-                allUnlocked.push(healedAchievement);
-            }
-        }
+
         
         // Salvar cada conquista desbloqueada sempre passando matchDate
         for (const achievement of allUnlocked) {
