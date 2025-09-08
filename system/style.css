@@ -5388,9 +5388,9 @@ input.selected {
 }
 
 #masteryCommanderImage {
-    width: 45px;
-    height: 45px;
-    border-radius: 6px;
+    width: 80px;
+    height: 80px;
+    border-radius: 10px;
     border: 2px solid #ffd700;
     object-fit: cover;
     margin: 0 auto;
