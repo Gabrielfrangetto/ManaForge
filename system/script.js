@@ -1936,6 +1936,9 @@ class MagicGameSystem {
         this.updateMatchHistory();
         this.updateTopCommanders();
         this.updateGeneralTab();
+        
+        // Definir aba 'Geral' (ex-Estatísticas) como padrão
+        this.switchTab('stats');
     }
 
     updatePlayerInfo() {
