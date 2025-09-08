@@ -5317,8 +5317,35 @@ class MagicGameSystem {
 
      // Função para calcular e exibir os níveis de maestria
      populateMasteryLevels(modal, mastery) {
-         const currentLevel = this.calculateCommanderLevel(mastery);
-         const levelProgress = this.calculateLevelProgress(mastery, currentLevel);
+        // Definir requisitos e recompensas para cada nível
+        const levelRequirements = {
+            1: { matches: 5, winrate: 0 },
+            2: { matches: 10, winrate: 0 },
+            3: { matches: 20, winrate: 50 },
+            4: { matches: 35, winrate: 55 },
+            5: { matches: 50, winrate: 60 },
+            6: { matches: 75, winrate: 65 },
+            7: { matches: 100, winrate: 70 },
+            8: { matches: 150, winrate: 75 },
+            9: { matches: 200, winrate: 80 },
+            10: { matches: 300, winrate: 85 }
+        };
+        
+        const rewardTriggers = {
+            1: 'Título: Iniciante',
+            2: 'Frame Bronze',
+            3: 'Título: Aprendiz',
+            4: 'Avatar Especial',
+            5: 'Título: Competente',
+            6: 'Frame Prata',
+            7: 'Título: Experiente',
+            8: 'Frame Ouro',
+            9: 'Título: Mestre',
+            10: 'Frame Lendário + Título: Lenda'
+        };
+        
+        const currentLevel = this.calculateCommanderLevel(mastery);
+        const levelProgress = this.calculateLevelProgress(mastery, currentLevel);
          
          // Atualizar informações do nível atual
          const currentLevelDisplay = modal.querySelector('#currentLevelDisplay');
@@ -5351,40 +5378,6 @@ class MagicGameSystem {
                  item.classList.add('level-locked');
              }
          });
-
-         for (let level = 1; level <= 10; level++) {
-             const levelItem = document.createElement('div');
-             levelItem.className = 'level-item';
-
-             const isUnlocked = level <= currentLevel;
-             const isCurrent = level === currentLevel;
-             const progress = this.calculateLevelProgress(mastery, level);
-
-             if (isUnlocked && !isCurrent) {
-                 levelItem.classList.add('unlocked');
-             } else if (isCurrent) {
-                 levelItem.classList.add('current');
-             } else {
-                 levelItem.classList.add('level-locked');
-             }
-
-             const requirement = levelRequirements[level] || { matches: level * 5, winrate: 0 };
-             const reward = rewardTriggers[level] || 'Recompensa em breve';
-
-             levelItem.innerHTML = `
-                 <div class="level-number">Nível ${level}</div>
-                 <div class="level-progress">
-                     <div class="level-progress-bar" style="width: ${progress}%"></div>
-                 </div>
-                 <div class="level-requirement">
-                     ${requirement.matches} partidas
-                     ${requirement.winrate > 0 ? `, ${requirement.winrate}% winrate` : ''}
-                 </div>
-                 <div class="level-reward">${reward}</div>
-             `;
-
-             levelsGrid.appendChild(levelItem);
-         }
      }
 
      // Função para calcular o nível atual do comandante
