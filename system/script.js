@@ -747,8 +747,8 @@ class MagicGameSystem {
             }
         };
         const style = rankStyles[currentFrameId] || {
-            top: '-39px',
-            left: '-36px',
+            top: '-38px',
+            left: '-35px',
             width: '194px',
             height: '200px'
         };
