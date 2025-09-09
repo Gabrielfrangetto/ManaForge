@@ -749,7 +749,7 @@ class MagicGameSystem {
         const style = rankStyles[currentFrameId] || {
             top: '-38px',
             left: '-35px',
-            width: '194px',
+            width: '192px',
             height: '200px'
         };
         avatarFrame.innerHTML = `
