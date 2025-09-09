@@ -5376,25 +5376,25 @@ class MagicGameSystem {
      }
 
      // Função para preencher as estatísticas do modal
-     populateMasteryStats(modal, mastery) {
-         // Atualizar elementos específicos usando IDs
-         const winrateElement = modal.querySelector('#masteryWinrate');
-         const matchesElement = modal.querySelector('#masteryMatches');
-         const winsElement = modal.querySelector('#masteryWins');
-         const removalsElement = modal.querySelector('#masteryRemovals');
-         const gameCardElement = modal.querySelector('#masteryGameCard');
+    populateMasteryStats(modal, mastery) {
+        // Atualizar elementos específicos usando IDs
+        const winrateElement = modal.querySelector('#masteryWinrate');
+        const matchesElement = modal.querySelector('#masteryMatches');
+        const winsElement = modal.querySelector('#masteryWins');
+        const removalsElement = modal.querySelector('#masteryRemovals');
+        const gameCardElement = modal.querySelector('#masteryGameCard');
 
-         // Corrigir o cálculo das vitórias
-         const wins = mastery.wins || 0;
-         const matches = mastery.totalMatches || 0;
-         const winrate = matches > 0 ? Math.round((wins / matches) * 100) : 0;
+        // Corrigir o cálculo das vitórias e winrate
+        const wins = mastery.wins || 0;
+        const matches = mastery.totalMatches || 0;
+        const winrate = matches > 0 ? Math.round((wins / matches) * 100) : 0;
 
-         if (winrateElement) winrateElement.textContent = `${winrate}%`;
-         if (matchesElement) matchesElement.textContent = matches;
-         if (winsElement) winsElement.textContent = wins;
-         if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
-         if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
-     }
+        if (winrateElement) winrateElement.textContent = `${winrate}%`;
+        if (matchesElement) matchesElement.textContent = matches;
+        if (winsElement) winsElement.textContent = wins;
+        if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
+        if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
+    }
 
      // Função para calcular e exibir os níveis de maestria
      populateMasteryLevels(modal, mastery) {
