@@ -5188,69 +5188,12 @@ class MagicGameSystem {
              
              const commanderMastery = await response.json();
              
-             const container = document.getElementById('commanderMasteryGrid');
-             if (!container) return;
+             // Armazenar dados para paginação
+             this.allCommanderMastery = commanderMastery || [];
+             this.currentMasteryPage = 1;
+             this.masteryItemsPerPage = 10;
              
-             if (!commanderMastery || commanderMastery.length === 0) {
-                 container.innerHTML = '<div class="empty-commanders">Nenhum comandante jogado ainda</div>';
-                 return;
-             }
-             
-             container.innerHTML = '';
-             
-             for (const mastery of commanderMastery) {
-                 const masteryCard = document.createElement('div');
-                 masteryCard.className = 'commander-mastery-card';
-                 
-                 const imageUrl = await this.getCardImageUrl(mastery.name);
-                 
-                 // Determinar classe do winrate baseado na porcentagem
-                 const winrateValue = parseFloat(mastery.winrate);
-                 let winrateClass = 'winrate-low';
-                 if (winrateValue >= 70) winrateClass = 'winrate-high';
-                 else if (winrateValue >= 50) winrateClass = 'winrate-medium';
-                 
-                 masteryCard.innerHTML = `
-                     <div class="commander-mastery-image">
-                         <img src="${imageUrl}" alt="${mastery.name}" loading="lazy">
-                     </div>
-                     <div class="commander-mastery-info">
-                         <h4>${mastery.name}</h4>
-                         <div class="mastery-stats">
-                             <div class="stat-item">
-                                 <span class="stat-label">Winrate:</span>
-                                 <span class="stat-value ${winrateClass}">${mastery.winrate}%</span>
-                             </div>
-                             <div class="stat-item">
-                                 <span class="stat-label">Partidas:</span>
-                                 <span class="stat-value">${mastery.totalMatches}</span>
-                             </div>
-                             <div class="stat-item">
-                                 <span class="stat-label">Vitórias:</span>
-                                 <span class="stat-value">${mastery.wins}</span>
-                             </div>
-                             <div class="stat-item">
-                                 <span class="stat-label">Removido:</span>
-                                 <span class="stat-value">${mastery.totalRemovals}x</span>
-                             </div>
-                             <div class="stat-item">
-                                 <span class="stat-label">Carta do Jogo:</span>
-                                 <span class="stat-value">${mastery.gameCardCount}x</span>
-                             </div>
-                         </div>
-                     </div>
-                 `;
-                 
-                 // Adicionar event listener para abrir o modal
-                 masteryCard.addEventListener('click', () => {
-                     this.openCommanderMasteryModal(mastery, imageUrl);
-                 });
-                 
-                 // Adicionar cursor pointer para indicar que é clicável
-                 masteryCard.style.cursor = 'pointer';
-                 
-                 container.appendChild(masteryCard);
-             }
+             this.renderCommanderMasteryPage();
          } catch (error) {
              console.error('Erro ao carregar estatísticas de maestria de comandantes:', error);
              const container = document.getElementById('commanderMasteryGrid');
@@ -5258,6 +5201,139 @@ class MagicGameSystem {
                  container.innerHTML = '<div class="error-message">Erro ao carregar estatísticas</div>';
              }
          }
+     }
+
+     async renderCommanderMasteryPage() {
+         const container = document.getElementById('commanderMasteryGrid');
+         if (!container) return;
+         
+         if (!this.allCommanderMastery || this.allCommanderMastery.length === 0) {
+             container.innerHTML = '<div class="empty-commanders">Nenhum comandante jogado ainda</div>';
+             this.updateMasteryPaginationControls();
+             return;
+         }
+         
+         // Calcular índices da página atual
+         const startIndex = (this.currentMasteryPage - 1) * this.masteryItemsPerPage;
+         const endIndex = startIndex + this.masteryItemsPerPage;
+         const pageCommanders = this.allCommanderMastery.slice(startIndex, endIndex);
+         
+         container.innerHTML = '';
+         
+         for (const mastery of pageCommanders) {
+             const masteryCard = document.createElement('div');
+             masteryCard.className = 'commander-mastery-card';
+             
+             const imageUrl = await this.getCardImageUrl(mastery.name);
+             
+             // Determinar classe do winrate baseado na porcentagem
+             const winrateValue = parseFloat(mastery.winrate);
+             let winrateClass = 'winrate-low';
+             if (winrateValue >= 70) winrateClass = 'winrate-high';
+             else if (winrateValue >= 50) winrateClass = 'winrate-medium';
+             
+             masteryCard.innerHTML = `
+                 <div class="commander-mastery-image">
+                     <img src="${imageUrl}" alt="${mastery.name}" loading="lazy">
+                 </div>
+                 <div class="commander-mastery-info">
+                     <h4>${mastery.name}</h4>
+                     <div class="mastery-stats">
+                         <div class="stat-item">
+                             <span class="stat-label">Winrate:</span>
+                             <span class="stat-value ${winrateClass}">${mastery.winrate}%</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Partidas:</span>
+                             <span class="stat-value">${mastery.totalMatches}</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Vitórias:</span>
+                             <span class="stat-value">${mastery.wins}</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Removido:</span>
+                             <span class="stat-value">${mastery.totalRemovals}x</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Carta do Jogo:</span>
+                             <span class="stat-value">${mastery.gameCardCount}x</span>
+                         </div>
+                     </div>
+                 </div>
+             `;
+             
+             // Adicionar event listener para abrir o modal
+             masteryCard.addEventListener('click', () => {
+                 this.openCommanderMasteryModal(mastery, imageUrl);
+             });
+             
+             // Adicionar cursor pointer para indicar que é clicável
+             masteryCard.style.cursor = 'pointer';
+             
+             container.appendChild(masteryCard);
+         }
+         
+         this.updateMasteryPaginationControls();
+     }
+
+     updateMasteryPaginationControls() {
+         const totalPages = Math.ceil(this.allCommanderMastery.length / this.masteryItemsPerPage);
+         const paginationContainer = document.getElementById('masteryPaginationControls');
+         
+         if (!paginationContainer) {
+             // Criar container de paginação se não existir
+             const masterySection = document.querySelector('.commander-mastery-section');
+             if (masterySection) {
+                 const paginationDiv = document.createElement('div');
+                 paginationDiv.id = 'masteryPaginationControls';
+                 paginationDiv.className = 'mastery-pagination-controls';
+                 masterySection.appendChild(paginationDiv);
+             }
+         }
+         
+         const controls = document.getElementById('masteryPaginationControls');
+         if (!controls) return;
+         
+         if (totalPages <= 1) {
+             controls.innerHTML = '';
+             return;
+         }
+         
+         let paginationHTML = '<div class="pagination-info">';
+         paginationHTML += `<span>Página ${this.currentMasteryPage} de ${totalPages}</span>`;
+         paginationHTML += `<span class="total-items">(${this.allCommanderMastery.length} comandantes)</span>`;
+         paginationHTML += '</div>';
+         
+         paginationHTML += '<div class="pagination-buttons">';
+         
+         // Botão Anterior
+         if (this.currentMasteryPage > 1) {
+             paginationHTML += `<button class="pagination-btn" onclick="gameSystem.changeMasteryPage(${this.currentMasteryPage - 1})">‹ Anterior</button>`;
+         }
+         
+         // Números das páginas
+         const startPage = Math.max(1, this.currentMasteryPage - 2);
+         const endPage = Math.min(totalPages, this.currentMasteryPage + 2);
+         
+         for (let i = startPage; i <= endPage; i++) {
+             const activeClass = i === this.currentMasteryPage ? 'active' : '';
+             paginationHTML += `<button class="pagination-btn page-number ${activeClass}" onclick="gameSystem.changeMasteryPage(${i})">${i}</button>`;
+         }
+         
+         // Botão Próximo
+         if (this.currentMasteryPage < totalPages) {
+             paginationHTML += `<button class="pagination-btn" onclick="gameSystem.changeMasteryPage(${this.currentMasteryPage + 1})">Próximo ›</button>`;
+         }
+         
+         paginationHTML += '</div>';
+         
+         controls.innerHTML = paginationHTML;
+     }
+
+     async changeMasteryPage(page) {
+         this.currentMasteryPage = page;
+         await this.renderCommanderMasteryPage();
      }
 
      // Função para abrir o modal de maestria do comandante
