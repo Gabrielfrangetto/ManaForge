@@ -971,17 +971,41 @@ async function getMultipleCardData(cardName, retryCount = 0) {
 // Criar novo jogador (PROTEGIDO - APENAS MASTER)
 app.post('/api/player', authenticateToken, requireMaster, async (req, res) => {
     try {
-        const playerData = req.body;
+        const { name, email, password, ...rest } = req.body;
         
-        // Verificar se já existe um jogador com esse nome
-        const existingPlayer = await Player.findOne({ name: playerData.name });
-        if (existingPlayer) {
-            return res.status(400).json({ error: 'Já existe um jogador com esse nome' });
+        // Validar campos obrigatórios
+        if (!name || !email || !password) {
+            return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
         }
         
-        const player = await Player.create(playerData);
+        // Verificar se já existe um jogador com esse nome
+        const existingPlayerByName = await Player.findOne({ name });
+        if (existingPlayerByName) {
+            return res.status(409).json({ error: 'Nome já em uso' });
+        }
+        
+        // Verificar se já existe um jogador com esse email
+        const existingPlayerByEmail = await Player.findOne({ email });
+        if (existingPlayerByEmail) {
+            return res.status(409).json({ error: 'Email já em uso' });
+        }
+        
+        // Hashear a senha antes de salvar
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const player = await Player.create({ 
+            name, 
+            email, 
+            password: hashedPassword, 
+            ...rest 
+        });
+        
         res.status(201).json(player);
     } catch (error) {
+        // Se vier 11000 do Mongo, é duplicado não capturado acima
+        if (error.code === 11000) {
+            return res.status(409).json({ error: 'Nome ou email já em uso' });
+        }
         console.error('Erro ao criar jogador:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }

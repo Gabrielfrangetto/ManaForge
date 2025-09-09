@@ -243,11 +243,23 @@ class MagicGameSystem {
 
     async createNewPlayerFromForm() {
         const name = document.getElementById('newPlayerName').value.trim();
+        const email = document.getElementById('newPlayerEmail').value.trim();
+        const password = document.getElementById('newPlayerPassword').value.trim();
         const title = document.getElementById('newPlayerTitle').value.trim();
         const avatar = document.getElementById('newPlayerAvatar').value.trim();
 
         if (!name) {
             this.showErrorMessage('Nome do jogador é obrigatório');
+            return;
+        }
+
+        if (!email) {
+            this.showErrorMessage('Email é obrigatório');
+            return;
+        }
+
+        if (!password) {
+            this.showErrorMessage('Senha é obrigatória');
             return;
         }
 
@@ -259,6 +271,8 @@ class MagicGameSystem {
 
         const newPlayerData = {
             name: name,
+            email: email,
+            password: password,
             title: title || 'Planeswalker Iniciante',
             avatar: avatar || 'https://via.placeholder.com/120x120/4a5568/ffffff?text=Avatar',
             level: 1,
@@ -810,6 +824,8 @@ class MagicGameSystem {
 
     clearNewPlayerForm() {
         document.getElementById('newPlayerName').value = '';
+        document.getElementById('newPlayerEmail').value = '';
+        document.getElementById('newPlayerPassword').value = '';
         document.getElementById('newPlayerTitle').value = 'Planeswalker Iniciante';
         document.getElementById('newPlayerAvatar').value = '';
     }
@@ -4991,6 +5007,7 @@ class MagicGameSystem {
 
         // Elementos administrativos que só devem aparecer para master
         const playerSelectorContainer = document.querySelector('.player-selector-container');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
         const demoControls = document.querySelector('.demo-controls');
         const matchRegistration = document.querySelector('.match-registration');
         const demoButtons = document.querySelector('.demo-buttons');
@@ -4998,12 +5015,14 @@ class MagicGameSystem {
         if (this.currentUser.isMaster) {
             // Mostrar elementos administrativos para usuários master
             if (playerSelectorContainer) playerSelectorContainer.style.display = 'block';
+            if (addPlayerBtn) addPlayerBtn.style.display = 'inline-block';
             if (demoControls) demoControls.style.display = 'block';
             if (matchRegistration) matchRegistration.style.display = 'block';
             if (demoButtons) demoButtons.style.display = 'block';
         } else {
             // Ocultar elementos administrativos para usuários não-master
             if (playerSelectorContainer) playerSelectorContainer.style.display = 'none';
+            if (addPlayerBtn) addPlayerBtn.style.display = 'none';
             if (demoControls) demoControls.style.display = 'none';
             if (matchRegistration) matchRegistration.style.display = 'none';
             if (demoButtons) demoButtons.style.display = 'none';
