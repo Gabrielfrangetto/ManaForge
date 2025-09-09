@@ -773,9 +773,9 @@ class MagicGameSystem {
                 position: absolute;
                 ${currentFrameId === 'lightning' ? `
                     top: -50px;
-                    left: -52px;
-                    width: 223px;
-                    height: 223px;
+                    left: -27px;
+                    width: 175px;
+                    height: 227px;
                 ` : currentFrameId === 'shadow' ? `
                     top: -34px;
                     left: -37px;
