@@ -5460,76 +5460,72 @@ class MagicGameSystem {
      }
 
      // Calcula e exibe tier atual e progresso até o próximo
-     updateMasteryTiers(modal, mastery) {
-         // Definição dos tiers e requisitos
+     updateMasteryTiers(modal, m) {
          const tiers = [
              { id: 'spark', label: 'Spark', req: { matches: 1 } },
              { id: 'ember', label: 'Ember', req: { wins: 25, gameCards: 1 } },
              { id: 'lord',  label: 'Lord',  req: { wins: 50, gameCards: 5 } },
-             { id: 'titan', label: 'Titan', req: { wins: 75, gameCards: 10, wr: 50 } },
+             { id: 'titan', label: 'Titan', req: { wins: 75, wr: 50, gameCards: 10 } },
          ];
 
-         // Estatísticas do comandante entregue pelo backend
+         // Normaliza stats vindos do backend
          const stats = {
-             matches: Number(mastery.totalMatches || 0),
-             wins:    Number(mastery.wins || 0),
-             game:    Number(mastery.gameCardCount || 0),
-             wr:      Number(parseFloat(mastery.winrate) || 0),
+             matches: Number(m.totalMatches || 0),
+             wins:    Number(m.wins ?? Math.round((Number(m.totalMatches || 0) * parseFloat(m.winrate || 0)) / 100)),
+             wr:      Number(parseFloat(m.winrate || 0)),
+             gameCards: Number(m.gameCardCount || 0),
          };
 
-         // Função para checar se cumpre um tier
          const meets = (req) => {
              if (req.matches && stats.matches < req.matches) return false;
              if (req.wins    && stats.wins    < req.wins)    return false;
-             if (req.gameCards && stats.game  < req.gameCards) return false;
              if (req.wr      && stats.wr      < req.wr)      return false;
+             if (req.gameCards && stats.gameCards < req.gameCards) return false;
              return true;
          };
 
-         // Descobrir o tier atual (o maior que cumpre)
+         // Tier atual = maior tier já atendido
          let currentIdx = 0;
          for (let i = tiers.length - 1; i >= 0; i--) {
              if (meets(tiers[i].req)) { currentIdx = i; break; }
          }
-         const currentTier = tiers[currentIdx];
-         const nextTier = tiers[currentIdx + 1] || null;
+         const current = tiers[currentIdx];
+         const next = tiers[currentIdx + 1] || null;
 
-         // Atualizar rótulo do tier
-         const display = modal.querySelector('#currentTierDisplay');
-         if (display) display.textContent = currentTier.label;
+         // Texto do tier atual
+         const tierNameEl = modal.querySelector('#currentTierDisplay');
+         if (tierNameEl) tierNameEl.textContent = current.label;
 
-         // Calcular % até o próximo tier (mínimo entre os requisitos)
-         let pctToNext = 100;
-         if (nextTier) {
-             const r = nextTier.req;
-             const parts = [];
+         // Progresso até o próximo tier (média dos requisitos → permite progresso parcial)
+         let pct = 100;
+         if (next) {
+             const r = next.req, parts = [];
              if (r.matches)   parts.push(Math.min(stats.matches / r.matches, 1));
              if (r.wins)      parts.push(Math.min(stats.wins    / r.wins,    1));
-             if (r.gameCards) parts.push(Math.min(stats.game    / r.gameCards,1));
              if (r.wr)        parts.push(Math.min(stats.wr      / r.wr,      1));
-             const ratio = parts.length ? Math.min(...parts) : 1;
-             pctToNext = Math.floor(ratio * 100);
+             if (r.gameCards) parts.push(Math.min(stats.gameCards / r.gameCards, 1));
+             pct = Math.floor((parts.reduce((a,b)=>a+b,0) / parts.length) * 100);
          }
 
          const pctEl = modal.querySelector('#currentTierProgress');
-         if (pctEl) pctEl.textContent = pctToNext;
+         if (pctEl) pctEl.textContent = pct;
 
-         // Preencher a barra ao longo de toda a linha (3 segmentos: Spark→Ember, Ember→Lord, Lord→Titan)
+         // Barra contínua (Spark→Ember→Lord→Titan)
          const fill = modal.querySelector('#tierProgressFill');
          if (fill) {
-             const segments = tiers.length - 1;         // 3
-             const segWidth = 100 / segments;           // 33.333…
-             const base = currentIdx * segWidth;        // já conquistado em segmentos completos
-             const width = nextTier ? Math.min(100, base + segWidth * (pctToNext / 100)) : 100;
+             const segments = tiers.length - 1; // 3
+             const segW = 100 / segments;
+             const base = currentIdx * segW;
+             const width = next ? Math.min(100, base + segW * (pct / 100)) : 100;
              fill.style.width = width + '%';
          }
 
-         // Marcar marcadores como locked/unlocked
+         // Trava/destrava marcadores e destaca o atual
          modal.querySelectorAll('.tier-marker').forEach(marker => {
              const id = marker.getAttribute('data-tier');
              const idx = tiers.findIndex(t => t.id === id);
-             marker.classList.remove('locked');
-             if (idx > currentIdx) marker.classList.add('locked');
+             marker.classList.toggle('locked', idx > currentIdx);
+             marker.classList.toggle('current', idx === currentIdx);
          });
      }
 
