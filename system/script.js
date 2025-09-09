@@ -5295,6 +5295,10 @@ class MagicGameSystem {
          const controls = document.getElementById('masteryPaginationControls');
          if (!controls) return;
          
+         if (totalPages <= 1) {
+             controls.innerHTML = '';
+             return;
+         }
          
          let paginationHTML = '<div class="pagination-info">';
          paginationHTML += `<span>Página ${this.currentMasteryPage} de ${totalPages}</span>`;
