@@ -5376,153 +5376,84 @@ class MagicGameSystem {
      }
 
      // Função para preencher as estatísticas do modal
-    populateMasteryStats(modal, mastery) {
-        // Atualizar elementos específicos usando IDs
-        const winrateElement = modal.querySelector('#masteryWinrate');
-        const matchesElement = modal.querySelector('#masteryMatches');
-        const winsElement = modal.querySelector('#masteryWins');
-        const removalsElement = modal.querySelector('#masteryRemovals');
-        const gameCardElement = modal.querySelector('#masteryGameCard');
+     populateMasteryStats(modal, mastery) {
+         // Atualizar elementos específicos usando IDs
+         const winrateElement = modal.querySelector('#masteryWinrate');
+         const matchesElement = modal.querySelector('#masteryMatches');
+         const winsElement = modal.querySelector('#masteryWins');
+         const removalsElement = modal.querySelector('#masteryRemovals');
+         const gameCardElement = modal.querySelector('#masteryGameCard');
 
-        // Corrigir o cálculo das vitórias e winrate
-        const wins = mastery.wins || 0;
-        const matches = mastery.totalMatches || 0;
-        const winrate = matches > 0 ? Math.round((wins / matches) * 100) : 0;
-
-        if (winrateElement) winrateElement.textContent = `${winrate}%`;
-        if (matchesElement) matchesElement.textContent = matches;
-        if (winsElement) winsElement.textContent = wins;
-        if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
-        if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
-    }
+         if (winrateElement) winrateElement.textContent = `${mastery.winrate}%`;
+         if (matchesElement) matchesElement.textContent = mastery.totalMatches;
+         if (winsElement) winsElement.textContent = mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate) / 100);
+         if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
+         if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
+     }
 
      // Função para calcular e exibir os níveis de maestria
      populateMasteryLevels(modal, mastery) {
-        // NOVO SISTEMA DE TIERS
-        const tierRequirements = {
-            'spark': { matches: 1, wins: 0, gameCards: 0, winrate: 0 },
-            'ember': { matches: 0, wins: 25, gameCards: 1, winrate: 0 },
-            'lord': { matches: 0, wins: 50, gameCards: 5, winrate: 0 },
-            'titan': { matches: 0, wins: 75, gameCards: 10, winrate: 50 }
+        // Definir requisitos e recompensas para cada nível
+        const levelRequirements = {
+            1: { matches: 5, winrate: 0 },
+            2: { matches: 10, winrate: 0 },
+            3: { matches: 20, winrate: 50 },
+            4: { matches: 35, winrate: 55 },
+            5: { matches: 50, winrate: 60 },
+            6: { matches: 75, winrate: 65 },
+            7: { matches: 100, winrate: 70 },
+            8: { matches: 150, winrate: 75 },
+            9: { matches: 200, winrate: 80 },
+            10: { matches: 300, winrate: 85 }
         };
         
-        const tierNames = ['spark', 'ember', 'lord', 'titan'];
-        const tierDisplayNames = {
-            'spark': 'Spark',
-            'ember': 'Ember', 
-            'lord': 'Lord',
-            'titan': 'Titan'
+        const rewardTriggers = {
+            1: 'Título: Iniciante',
+            2: 'Frame Bronze',
+            3: 'Título: Aprendiz',
+            4: 'Avatar Especial',
+            5: 'Título: Competente',
+            6: 'Frame Prata',
+            7: 'Título: Experiente',
+            8: 'Frame Ouro',
+            9: 'Título: Mestre',
+            10: 'Frame Lendário + Título: Lenda'
         };
         
-        // Calcular estatísticas do jogador
-        const playerStats = {
-            matches: mastery.totalMatches || 0,
-            wins: mastery.wins || 0,
-            gameCards: mastery.gameCardCount || 0,
-            winrate: mastery.totalMatches > 0 ? Math.round((mastery.wins || 0) / mastery.totalMatches * 100) : 0
-        };
-        
-        // Determinar tier atual
-        let currentTier = 'spark'; // Tier mínimo
-        
-        for (let i = tierNames.length - 1; i >= 0; i--) {
-            const tier = tierNames[i];
-            const req = tierRequirements[tier];
-            
-            if (playerStats.matches >= req.matches &&
-                playerStats.wins >= req.wins &&
-                playerStats.gameCards >= req.gameCards &&
-                playerStats.winrate >= req.winrate) {
-                currentTier = tier;
-                break;
-            }
-        }
-        
-        // Calcular progresso para próximo tier
-        const currentTierIndex = tierNames.indexOf(currentTier);
-        let nextTier = null;
-        let progressPercent = 0;
-        
-        if (currentTierIndex < tierNames.length - 1) {
-            nextTier = tierNames[currentTierIndex + 1];
-            const nextReq = tierRequirements[nextTier];
-            
-            // Calcular progresso baseado no requisito mais restritivo
-            let progressValues = [];
-            
-            if (nextReq.matches > 0) {
-                progressValues.push((playerStats.matches / nextReq.matches) * 100);
-            }
-            if (nextReq.wins > 0) {
-                progressValues.push((playerStats.wins / nextReq.wins) * 100);
-            }
-            if (nextReq.gameCards > 0) {
-                progressValues.push((playerStats.gameCards / nextReq.gameCards) * 100);
-            }
-            if (nextReq.winrate > 0) {
-                progressValues.push((playerStats.winrate / nextReq.winrate) * 100);
-            }
-            
-            // Usar o menor progresso (requisito mais restritivo)
-            progressPercent = progressValues.length > 0 ? Math.min(...progressValues) : 0;
-            progressPercent = Math.min(100, Math.max(0, progressPercent));
-        } else {
-            // Já está no tier máximo
-            progressPercent = 100;
-        }
-        
-        // Atualizar elementos do tier no modal
-        const currentTierDisplay = modal.querySelector('#currentTierDisplay');
-        const currentTierProgress = modal.querySelector('#currentTierProgress');
-        const tierProgressFill = modal.querySelector('#tierProgressFill');
-        
-        if (currentTierDisplay) {
-            currentTierDisplay.textContent = tierDisplayNames[currentTier];
-        }
-        
-        if (currentTierProgress) {
-            if (nextTier) {
-                currentTierProgress.textContent = Math.round(progressPercent);
-            } else {
-                currentTierProgress.textContent = '100';
-            }
-        }
-        
-        if (tierProgressFill) {
-            tierProgressFill.style.width = `${progressPercent}%`;
-        }
-        
-        // Atualizar marcadores visuais dos tiers
-        const tierMarkers = modal.querySelectorAll('.tier-marker');
-        tierMarkers.forEach(marker => {
-            const tierData = marker.getAttribute('data-tier');
-            const tierCircle = marker.querySelector('.tier-circle');
-            
-            if (tierCircle) {
-                // Remover classes anteriores
-                tierCircle.classList.remove('unlocked', 'current', 'locked');
-                
-                const tierIndex = tierNames.indexOf(tierData);
-                const currentIndex = tierNames.indexOf(currentTier);
-                
-                if (tierIndex <= currentIndex) {
-                    tierCircle.classList.add('unlocked');
-                    if (tierIndex === currentIndex) {
-                        tierCircle.classList.add('current');
-                    }
-                } else {
-                    tierCircle.classList.add('locked');
-                }
-            }
-        });
-        
-        // Log para debug
-        console.log('🎯 Sistema de Tiers:', {
-            currentTier: tierDisplayNames[currentTier],
-            nextTier: nextTier ? tierDisplayNames[nextTier] : 'Máximo atingido',
-            progress: `${Math.round(progressPercent)}%`,
-            playerStats
-        });
+        const currentLevel = this.calculateCommanderLevel(mastery);
+        const levelProgress = this.calculateLevelProgress(mastery, currentLevel);
+         
+         // Atualizar informações do nível atual
+         const currentLevelDisplay = modal.querySelector('#currentLevelDisplay');
+         const currentLevelPoints = modal.querySelector('#currentLevelPoints');
+         const nextLevelPoints = modal.querySelector('#nextLevelPoints');
+         const levelProgressFill = modal.querySelector('#levelProgressFill');
+         const commanderCurrentLevel = modal.querySelector('#commanderCurrentLevel');
+         
+         if (currentLevelDisplay) currentLevelDisplay.textContent = currentLevel;
+         if (commanderCurrentLevel) commanderCurrentLevel.textContent = currentLevel;
+         if (currentLevelPoints) currentLevelPoints.textContent = levelProgress.current;
+         if (nextLevelPoints) nextLevelPoints.textContent = levelProgress.required;
+         if (levelProgressFill) {
+             const progressPercent = (levelProgress.current / levelProgress.required) * 100;
+             levelProgressFill.style.width = `${Math.min(progressPercent, 100)}%`;
+         }
+         
+         // Atualizar os círculos de nível
+         const levelItems = modal.querySelectorAll('.level-item');
+         levelItems.forEach((item, index) => {
+             const level = index + 1;
+             const levelCircle = item.querySelector('.level-circle');
+             
+             if (level <= currentLevel) {
+                 item.classList.add('unlocked');
+                 if (level === currentLevel) {
+                     item.classList.add('current');
+                 }
+             } else {
+                 item.classList.add('level-locked');
+             }
+         });
      }
 
      // Função para calcular o nível atual do comandante
