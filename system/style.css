@@ -5364,7 +5364,7 @@ input.selected {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: var(--primary-background-color);
     border-radius: 15px;
     padding: 2rem;
     max-width: 800px;
