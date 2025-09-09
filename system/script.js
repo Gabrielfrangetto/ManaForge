@@ -5384,9 +5384,14 @@ class MagicGameSystem {
          const removalsElement = modal.querySelector('#masteryRemovals');
          const gameCardElement = modal.querySelector('#masteryGameCard');
 
-         if (winrateElement) winrateElement.textContent = `${mastery.winrate}%`;
-         if (matchesElement) matchesElement.textContent = mastery.totalMatches;
-         if (winsElement) winsElement.textContent = mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate) / 100);
+         // Corrigir o cálculo das vitórias
+         const wins = mastery.wins || 0;
+         const matches = mastery.totalMatches || 0;
+         const winrate = matches > 0 ? Math.round((wins / matches) * 100) : 0;
+
+         if (winrateElement) winrateElement.textContent = `${winrate}%`;
+         if (matchesElement) matchesElement.textContent = matches;
+         if (winsElement) winsElement.textContent = wins;
          if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
          if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
      }
@@ -5412,9 +5417,9 @@ class MagicGameSystem {
         // Calcular estatísticas do jogador
         const playerStats = {
             matches: mastery.totalMatches || 0,
-            wins: mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate || 0) / 100),
+            wins: mastery.wins || 0,
             gameCards: mastery.gameCardCount || 0,
-            winrate: parseFloat(mastery.winrate || 0)
+            winrate: mastery.totalMatches > 0 ? Math.round((mastery.wins || 0) / mastery.totalMatches * 100) : 0
         };
         
         // Determinar tier atual
