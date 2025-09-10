@@ -5409,7 +5409,7 @@ class MagicGameSystem {
          if (winrateElement) winrateElement.textContent = `${mastery.winrate}%`;
          if (matchesElement) matchesElement.textContent = mastery.totalMatches;
          if (winsElement) winsElement.textContent = mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate) / 100);
-         if (removalsElement) removalsElement.textContent = `${mastery.commanderRemovedCount || 0}x`;
+         if (removalsElement) removalsElement.textContent = `${mastery.totalRemovals || 0}x`;
          if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
      }
 

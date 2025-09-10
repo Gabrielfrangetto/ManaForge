@@ -326,7 +326,8 @@ const matchSchema = new mongoose.Schema({
     playerCommanderRemoved: [{
         playerId: { type: String, required: true },
         playerName: { type: String, required: true },
-        count: { type: Number, default: 0 }
+        count: { type: Number, default: 0 },
+        type: { type: String, enum: ['main', 'partner'], default: 'main' }
     }],
     
     // === CAMPOS GERAIS ===
@@ -1965,8 +1966,7 @@ app.post('/api/demo/ranking-xp/:playerId', authenticateToken, requireMaster, asy
     }
 });
 
-// Endpoint para estatísticas de comandantes removidos por jogador
-// Endpoint para estatísticas de maestria por comandante único
+// Endpoint para estatísticas de maestria por comandante (principal e partner separados)
 app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
     try {
         const playerId = req.params.playerId;
@@ -1989,25 +1989,14 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
             const playerCommander = match.commanders.find(cmd => cmd.playerId === playerId);
             
             if (playerCommander) {
-                // Usar apenas o nome do comandante (sem partner) como chave única
-                const commanderKey = playerCommander.name;
-                
                 // Verificar se foi vitória
                 const isWin = match.winner.toString() === playerId || match.winner === playerId;
                 
-                // Encontrar quantas vezes o comandante foi removido nesta partida
-                const removalData = match.playerCommanderRemoved.find(removal => removal.playerId === playerId);
-                const removalsCount = removalData ? removalData.count : 0;
-                
-                // Verificar se o comandante foi carta do jogo E pertence ao jogador específico
-                const isGameCard = match.gameCard && 
-                    match.gameCard.ownerId === playerId &&
-                    (match.gameCard.name === playerCommander.name || 
-                     (playerCommander.partnerName && match.gameCard.name === playerCommander.partnerName));
-                
-                if (!commanderStats[commanderKey]) {
-                    commanderStats[commanderKey] = {
-                        name: playerCommander.name,
+                // Processar comandante principal
+                const mainCommanderName = playerCommander.name;
+                if (!commanderStats[mainCommanderName]) {
+                    commanderStats[mainCommanderName] = {
+                        name: mainCommanderName,
                         totalMatches: 0,
                         wins: 0,
                         totalRemovals: 0,
@@ -2015,10 +2004,57 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
                     };
                 }
                 
-                commanderStats[commanderKey].totalMatches += 1;
-                if (isWin) commanderStats[commanderKey].wins += 1;
-                commanderStats[commanderKey].totalRemovals += removalsCount;
-                if (isGameCard) commanderStats[commanderKey].gameCardCount += 1;
+                // Incrementar estatísticas do comandante principal
+                commanderStats[mainCommanderName].totalMatches += 1;
+                if (isWin) commanderStats[mainCommanderName].wins += 1;
+                
+                // Processar remoções do comandante principal
+                const mainRemovals = match.playerCommanderRemoved.filter(removal => 
+                    removal.playerId === playerId && 
+                    (!removal.type || removal.type === 'main') // Retrocompatibilidade
+                );
+                const mainRemovalCount = mainRemovals.reduce((sum, removal) => sum + (removal.count || 0), 0);
+                commanderStats[mainCommanderName].totalRemovals += mainRemovalCount;
+                
+                // Verificar se o comandante principal foi carta do jogo
+                if (match.gameCard && 
+                    match.gameCard.ownerId === playerId &&
+                    match.gameCard.name === mainCommanderName) {
+                    commanderStats[mainCommanderName].gameCardCount += 1;
+                }
+                
+                // Processar partner se existir
+                if (playerCommander.partnerName) {
+                    const partnerName = playerCommander.partnerName;
+                    if (!commanderStats[partnerName]) {
+                        commanderStats[partnerName] = {
+                            name: partnerName,
+                            totalMatches: 0,
+                            wins: 0,
+                            totalRemovals: 0,
+                            gameCardCount: 0
+                        };
+                    }
+                    
+                    // Incrementar estatísticas do partner
+                    commanderStats[partnerName].totalMatches += 1;
+                    if (isWin) commanderStats[partnerName].wins += 1;
+                    
+                    // Processar remoções do partner
+                    const partnerRemovals = match.playerCommanderRemoved.filter(removal => 
+                        removal.playerId === playerId && 
+                        removal.type === 'partner'
+                    );
+                    const partnerRemovalCount = partnerRemovals.reduce((sum, removal) => sum + (removal.count || 0), 0);
+                    commanderStats[partnerName].totalRemovals += partnerRemovalCount;
+                    
+                    // Verificar se o partner foi carta do jogo
+                    if (match.gameCard && 
+                        match.gameCard.ownerId === playerId &&
+                        match.gameCard.name === partnerName) {
+                        commanderStats[partnerName].gameCardCount += 1;
+                    }
+                }
             }
         });
         
