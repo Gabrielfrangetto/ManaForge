@@ -958,7 +958,6 @@ body {
 .favorite-stack .card-front {
     z-index: 1;
     transform: translate(0, 0);
-}
     background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #4facfe 100%);
     background-size: 200% 100%;
     border-radius: 12px;
