@@ -953,6 +953,7 @@ body {
     z-index: 0;
     transform: rotate(-6deg) translate(-12px, 10px);
     filter: brightness(.92) saturate(.95);
+    transition: transform 0.3s ease, z-index 0.3s ease, filter 0.3s ease;
 }
 
 .favorite-stack .card-front {
@@ -961,8 +962,18 @@ body {
     background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #4facfe 100%);
     background-size: 200% 100%;
     border-radius: 12px;
-    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
     position: relative;
+}
+
+.favorite-stack .card-back:hover {
+    z-index: 2;
+    transform: rotate(0deg) translate(0px, 0px) scale(1.05);
+    filter: brightness(1) saturate(1);
+}
+
+.favorite-stack .card-front:hover {
+    transform: translate(0, 0) scale(1.05);
 }
 
 .achievement-progress span {

@@ -598,8 +598,10 @@ class AchievementSystem {
                     break;
                     
                 case 'card_owner_count':
-                    // Se a carta da partida existe e o dono é o jogador
-                    if (matchData.gameCard && matchData.gameCard.ownerId === playerId) {
+                    // Se a carta da partida existe e o dono é o jogador (comparação tolerante)
+                    const isOwner = matchData.gameCard && 
+                        (String(matchData.gameCard.ownerId) === String(playerId));
+                    if (isOwner) {
                         achievementCopy.progress = (achievementCopy.progress || 0) + 1;
                         
                         if (achievementCopy.progress >= achievementCopy.maxProgress) {
