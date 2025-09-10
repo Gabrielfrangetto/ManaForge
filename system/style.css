@@ -926,6 +926,39 @@ body {
 
 .progress-fill {
     height: 100%;
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    transition: width 0.8s ease;
+    position: relative;
+}
+
+/* === Favorite Commanders: partner overlay === */
+.favorite-stack {
+    position: relative;
+    width: 210px;                 /* ajuste se seu card for maior/menor */
+    aspect-ratio: 63 / 88;        /* mantém proporção de carta */
+    margin-inline: auto;
+}
+
+.favorite-stack img {
+    position: absolute;
+    inset: 0;                     /* top/right/bottom/left: 0 */
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 8px 22px rgba(0,0,0,.45);
+}
+
+.favorite-stack .card-back {
+    z-index: 0;
+    transform: rotate(-6deg) translate(-12px, 10px);
+    filter: brightness(.92) saturate(.95);
+}
+
+.favorite-stack .card-front {
+    z-index: 1;
+    transform: translate(0, 0);
+}
     background: linear-gradient(90deg, #4facfe 0%, #00f2fe 50%, #4facfe 100%);
     background-size: 200% 100%;
     border-radius: 12px;

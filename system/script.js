@@ -2291,11 +2291,19 @@ class MagicGameSystem {
             if (commander) {
                 // Comandante real
                 const winrate = commander.total > 0 ? Math.round((commander.wins / commander.total) * 100) : 0;
-                const cardImageUrl = await this.getCardImageUrl(commander.mainName);
+                
+                // Stack com partner por baixo
+                const mainName = commander.mainName;
+                const partnerName = this.getLatestPartnerForCommander(mainName);
+                const mainImg = this.getCommanderImg(mainName);
+                const partnerImg = partnerName ? this.getCommanderImg(partnerName) : null;
                 
                 commanderElement.innerHTML = `
                     <div class="commander-image">
-                        <img src="${cardImageUrl}" alt="${commander.name}" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">
+                        <div class="favorite-stack" title="${partnerName ? `${mainName} // ${partnerName}` : mainName}">
+                            ${partnerImg ? `<img class="card-back" src="${partnerImg}" alt="${partnerName}">` : ''}
+                            <img class="card-front" src="${mainImg}" alt="${mainName}" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">
+                        </div>
                     </div>
                     <div class="commander-info">
                         <div class="commander-name">${commander.name}</div>
@@ -2348,6 +2356,34 @@ class MagicGameSystem {
             console.error('Erro ao buscar imagem da carta:', error);
         }
         return 'https://via.placeholder.com/120x168/4a5568/ffffff?text=Card';
+    }
+
+    // Retorna a imagem de uma carta (usa helper do projeto se existir; senão cai no Scryfall)
+    getCommanderImg(name) {
+        if (!name) return '';
+        const fn = this.getCommanderImageUrl || this.getCommanderCardImageURL || null;
+        if (typeof fn === 'function') return fn.call(this, name);
+        return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image`;
+    }
+
+    // Encontra o partner mais recente usado com este comandante pelo jogador logado
+    getLatestPartnerForCommander(commanderName) {
+        try {
+            const pid = this.currentPlayer?._id || this.player?._id;
+            const matches = (this.allMatches || this.matches || []).slice().sort((a, b) => {
+                const da = new Date(a.date || a.createdAt || 0).getTime();
+                const db = new Date(b.date || b.createdAt || 0).getTime();
+                return db - da; // desc
+            });
+            for (const m of matches) {
+                const pc = (m.commanders || []).find(c =>
+                    (c.playerId === pid || String(c.playerId) === String(pid)) &&
+                    c.name === commanderName
+                );
+                if (pc?.partnerName) return pc.partnerName;
+            }
+        } catch (e) {}
+        return null;
     }
 
     async updateAchievements() {
