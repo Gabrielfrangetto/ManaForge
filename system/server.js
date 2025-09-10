@@ -352,6 +352,9 @@ const matchSchema = new mongoose.Schema({
     timestamps: { createdAt: true, updatedAt: false }
 });
 
+// Índice para performance na ordenação do histórico
+matchSchema.index({ createdAt: -1, _id: -1 });
+
 const achievementSchema = new mongoose.Schema({
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: true },
     achievementId: { type: String, required: true },
@@ -599,9 +602,9 @@ app.get('/api/matches/:playerId', async (req, res) => {
         
         // Adicionar ordenação, paginação
         pipeline.push(
-            { $sort: { date: -1 } },
+            { $sort: { createdAt: -1, _id: -1 } }, // última registrada primeiro
             { $skip: skip },
-            { $limit: parseInt(limit) }
+            { $limit: Number(limit) }
         );
         
         const matches = await Match.aggregate(pipeline);
@@ -1345,64 +1348,6 @@ app.post('/api/matches/multiplayer', async (req, res) => {
         res.status(201).json(match);
     } catch (error) {
         console.error('Erro ao salvar partida multiplayer:', error);
-        res.status(500).json({ error: 'Erro interno do servidor' });
-    }
-});
-// Buscar histórico de partidas
-app.get('/api/matches/:playerId', async (req, res) => {
-    try {
-        const { page = 1, limit = 10, deckTheme, result, dateFrom, dateTo } = req.query;
-        const skip = (page - 1) * limit;
-        
-        // Filter corrigido para incluir todas as partidas onde o jogador participou
-        const filter = {
-            $or: [
-                { playerId: new mongoose.Types.ObjectId(req.params.playerId) },
-                { 'commanders.playerId': req.params.playerId },
-                { winner: new mongoose.Types.ObjectId(req.params.playerId) },
-                { firstPlayer: new mongoose.Types.ObjectId(req.params.playerId) }
-            ]
-        };
-        
-        if (deckTheme) {
-            // Para filtrar por deck theme, precisamos verificar se o jogador usou esse deck
-            filter['commanders'] = {
-                $elemMatch: {
-                    playerId: req.params.playerId,
-                    theme: deckTheme
-                }
-            };
-        }
-        
-        if (result) {
-            if (result === 'win') {
-                filter.winner = new mongoose.Types.ObjectId(req.params.playerId);
-            } else if (result === 'loss') {
-                filter.winner = { $ne: new mongoose.Types.ObjectId(req.params.playerId) };
-            }
-        }
-        
-        if (dateFrom || dateTo) {
-            filter.date = {};
-            if (dateFrom) filter.date.$gte = new Date(dateFrom);
-            if (dateTo) filter.date.$lte = new Date(dateTo);
-        }
-        
-        const matches = await Match.find(filter)
-            .sort({ createdAt: -1 })
-            .limit(parseInt(limit))
-            .skip(skip);
-            
-        const totalMatches = await Match.countDocuments(filter);
-        
-        res.json({
-            matches,
-            totalMatches,
-            currentPage: parseInt(page),
-            totalPages: Math.ceil(totalMatches / limit)
-        });
-    } catch (error) {
-        console.error('Erro ao buscar partidas:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });

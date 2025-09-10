@@ -2834,8 +2834,8 @@ class MagicGameSystem {
             return;
         }
         
-        // Reverter a ordem para mostrar as partidas mais recentes primeiro
-        this.matchHistory.slice().reverse().slice(0, 10).forEach(match => {
+        // já vem ordenado pelo servidor (última registrada primeiro)
+        this.matchHistory.slice(0, 10).forEach(match => {
             if (!match) return; // Pular entradas inválidas
             
             // Determinar se foi vitória ou derrota baseado no winner
