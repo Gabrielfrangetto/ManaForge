@@ -3077,9 +3077,44 @@ class MagicGameSystem {
         this.populatePlayerStatSection('detailLandDrop', 'landDropSection', match.playerLandDrop, 
             (player) => player.missed ? 'Sim' : 'Não', 'Nenhum land drop registrado');
 
-        // Comandante Removido
-        this.populatePlayerStatSection('detailCommanderRemoved', 'commanderRemovedSection', match.playerCommanderRemoved, 
-            (player) => `${player.count} vez(es)`, 'Nenhuma remoção de comandante registrada');
+        // Comandante Removido (agregado por jogador; soma principal+partner e garante todos os jogadores)
+        (() => {
+            const raw = Array.isArray(match.playerCommanderRemoved) ? match.playerCommanderRemoved : [];
+            const byPlayer = new Map();
+
+            // Agregar counts por jogador e por tipo
+            raw.forEach(entry => {
+                const pid = entry?.playerId?.toString ? entry.playerId.toString() : entry.playerId;
+                if (!pid) return;
+                const prev = byPlayer.get(pid) || { playerId: pid, main: 0, partner: 0, count: 0 };
+                const c = parseInt(entry?.count, 10) || 0;
+                if (entry?.type === 'partner') prev.partner += c;
+                else prev.main += c; // trata undefined como 'main' (retrocompat)
+                prev.count = prev.main + prev.partner;
+                byPlayer.set(pid, prev);
+            });
+
+            // Garantir todos os jogadores da partida (mesmo com 0 remoções)
+            (match.commanders || []).forEach(c => {
+                const pid = c?.playerId?.toString ? c.playerId.toString() : c.playerId;
+                if (pid && !byPlayer.has(pid)) {
+                    byPlayer.set(pid, { playerId: pid, main: 0, partner: 0, count: 0 });
+                }
+            });
+
+            const normalized = Array.from(byPlayer.values());
+            this.populatePlayerStatSection(
+                'detailCommanderRemoved',
+                'commanderRemovedSection',
+                normalized,
+                (player) => {
+                    const hasPartner = (player.partner || 0) > 0;
+                    const breakdown = hasPartner ? ` (principal ${player.main}, partner ${player.partner})` : '';
+                    return `${player.count} vez(es)${breakdown}`;
+                },
+                'Nenhuma remoção de comandante registrada'
+            );
+        })();
     }
 
     populatePlayerStatSection(containerId, sectionId, data, valueFormatter, emptyMessage) {
@@ -3131,11 +3166,26 @@ class MagicGameSystem {
         const gameCardSection = document.getElementById('gameCardSection');
         
         if (gameCardContainer && gameCardSection) {
-            if (match.gameCard && match.gameCard.name) {
+            const gc = match.gameCard || {};
+            if (gc && (gc.name || gc.imageUrl)) {
                 gameCardSection.style.display = 'block';
+        
+                // Buscar imagem caso venha só o nome
+                let imgUrl = gc.imageUrl || '';
+                if (!imgUrl && gc.name && typeof this.getCardImageUrl === 'function') {
+                    try { imgUrl = await this.getCardImageUrl(gc.name); } catch(e) { console.warn('Falha ao buscar imagem da Carta do Jogo:', e); }
+                }
+        
+                const ownerName = this.getPlayerNameById(gc.ownerId) || 'Jogador não encontrado';
+                const safeName = gc.name || 'Carta não informada';
+        
                 gameCardContainer.innerHTML = `
                     <div class="game-card-display">
-                        ${match.gameCard.imageUrl ? `<img src="${match.gameCard.imageUrl}" alt="${match.gameCard.name}">` : ''}
+                        ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}">` : ''}
+                        <div class="game-card-meta">
+                            <div class="game-card-name">"${safeName}"</div>
+                            <div class="game-card-owner">Dono: <strong>${ownerName}</strong></div>
+                        </div>
                     </div>
                 `;
             } else {
