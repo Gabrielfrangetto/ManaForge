@@ -2292,18 +2292,27 @@ class MagicGameSystem {
                 // Comandante real
                 const winrate = commander.total > 0 ? Math.round((commander.wins / commander.total) * 100) : 0;
                 
-                // Stack com partner por baixo
-                const mainName = commander.mainName;
-                const partnerName = this.getLatestPartnerForCommander(mainName);
-                const mainImg = this.getCommanderImg(mainName);
-                const partnerImg = partnerName ? this.getCommanderImg(partnerName) : null;
+                // dentro do loop que cria cada card de comandante favorito:
+                const partnerName = await this.getLikelyPartnerFor(commander.name);
+                const frontUrl = await this.getCardImageUrlByName(commander.name);
+                
+                let imageHtml;
+                if (partnerName) {
+                    const backUrl = await this.getCardImageUrlByName(partnerName);
+                    imageHtml = `
+                        <div class="favorite-stack">
+                            <img class="card-back" src="${backUrl}" alt="${partnerName}">
+                            <img class="card-front" src="${frontUrl}" alt="${commander.name}">
+                        </div>
+                    `;
+                } else {
+                    // sem partner → mantém uma única imagem
+                    imageHtml = `<img class="card-front" src="${frontUrl}" alt="${commander.name}" style="width:210px; border-radius:12px; box-shadow:0 8px 22px rgba(0,0,0,.45)" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">`;
+                }
                 
                 commanderElement.innerHTML = `
                     <div class="commander-image">
-                        <div class="favorite-stack" title="${partnerName ? `${mainName} // ${partnerName}` : mainName}">
-                            ${partnerImg ? `<img class="card-back" src="${partnerImg}" alt="${partnerName}">` : ''}
-                            <img class="card-front" src="${mainImg}" alt="${mainName}" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">
-                        </div>
+                        <div class="image-slot">${imageHtml}</div>
                     </div>
                     <div class="commander-info">
                         <div class="commander-name">${commander.name}</div>
@@ -2359,31 +2368,29 @@ class MagicGameSystem {
     }
 
     // Retorna a imagem de uma carta (usa helper do projeto se existir; senão cai no Scryfall)
-    getCommanderImg(name) {
-        if (!name) return '';
-        const fn = this.getCommanderImageUrl || this.getCommanderCardImageURL || null;
-        if (typeof fn === 'function') return fn.call(this, name);
-        return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image`;
+    // helper: devolve o partner mais comum para esse comandante (pelos seus matches já carregados)
+    async getLikelyPartnerFor(commanderName) {
+        // 1) se sua API já retornar partner no objeto de top commander, use direto
+        const inStats = (this.playerStats?.topCommanders || []).find(c => c.name === commanderName);
+        if (inStats?.partnerName) return inStats.partnerName;
+
+        // 2) fallback: procurar nos matches do jogador
+        const freq = {};
+        for (const m of (this.matchHistory || [])) {
+            const me = (m.commanders || []).find(
+                c => c.playerId === this.currentPlayerId && c.name === commanderName && c.partnerName
+            );
+            if (me?.partnerName) freq[me.partnerName] = (freq[me.partnerName] || 0) + 1;
+        }
+        return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
     }
 
-    // Encontra o partner mais recente usado com este comandante pelo jogador logado
-    getLatestPartnerForCommander(commanderName) {
-        try {
-            const pid = this.currentPlayer?._id || this.player?._id;
-            const matches = (this.allMatches || this.matches || []).slice().sort((a, b) => {
-                const da = new Date(a.date || a.createdAt || 0).getTime();
-                const db = new Date(b.date || b.createdAt || 0).getTime();
-                return db - da; // desc
-            });
-            for (const m of matches) {
-                const pc = (m.commanders || []).find(c =>
-                    (c.playerId === pid || String(c.playerId) === String(pid)) &&
-                    c.name === commanderName
-                );
-                if (pc?.partnerName) return pc.partnerName;
-            }
-        } catch (e) {}
-        return null;
+    // helper: devolve URL da imagem da carta (use a mesma função que você já usa no resto do app)
+    async getCardImageUrlByName(name) {
+        // Reaproveite sua função existente; se não tiver uma unificada, você pode usar a rota/Cache do seu backend
+        // ou o padrão do Scryfall. Exemplo:
+        // return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image`;
+        return await this.getCardImageUrl(name); // <- se você já tem esta função
     }
 
     async updateAchievements() {
