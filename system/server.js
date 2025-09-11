@@ -326,8 +326,7 @@ const matchSchema = new mongoose.Schema({
     playerCommanderRemoved: [{
         playerId: { type: String, required: true },
         playerName: { type: String, required: true },
-        count: { type: Number, default: 0 },
-        type: { type: String, enum: ['main', 'partner'], default: 'main' }
+        count: { type: Number, default: 0 }
     }],
     
     // === CAMPOS GERAIS ===
@@ -351,9 +350,6 @@ const matchSchema = new mongoose.Schema({
 }, {
     timestamps: { createdAt: true, updatedAt: false }
 });
-
-// Índice para performance na ordenação do histórico
-matchSchema.index({ createdAt: -1, _id: -1 });
 
 const achievementSchema = new mongoose.Schema({
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: true },
@@ -602,9 +598,9 @@ app.get('/api/matches/:playerId', async (req, res) => {
         
         // Adicionar ordenação, paginação
         pipeline.push(
-            { $sort: { createdAt: -1, _id: -1 } }, // última registrada primeiro
+            { $sort: { date: -1 } },
             { $skip: skip },
-            { $limit: Number(limit) }
+            { $limit: parseInt(limit) }
         );
         
         const matches = await Match.aggregate(pipeline);
@@ -975,41 +971,17 @@ async function getMultipleCardData(cardName, retryCount = 0) {
 // Criar novo jogador (PROTEGIDO - APENAS MASTER)
 app.post('/api/player', authenticateToken, requireMaster, async (req, res) => {
     try {
-        const { name, email, password, ...rest } = req.body;
-        
-        // Validar campos obrigatórios
-        if (!name || !email || !password) {
-            return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
-        }
+        const playerData = req.body;
         
         // Verificar se já existe um jogador com esse nome
-        const existingPlayerByName = await Player.findOne({ name });
-        if (existingPlayerByName) {
-            return res.status(409).json({ error: 'Nome já em uso' });
+        const existingPlayer = await Player.findOne({ name: playerData.name });
+        if (existingPlayer) {
+            return res.status(400).json({ error: 'Já existe um jogador com esse nome' });
         }
         
-        // Verificar se já existe um jogador com esse email
-        const existingPlayerByEmail = await Player.findOne({ email });
-        if (existingPlayerByEmail) {
-            return res.status(409).json({ error: 'Email já em uso' });
-        }
-        
-        // Hashear a senha antes de salvar
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        const player = await Player.create({ 
-            name, 
-            email, 
-            password: hashedPassword, 
-            ...rest 
-        });
-        
+        const player = await Player.create(playerData);
         res.status(201).json(player);
     } catch (error) {
-        // Se vier 11000 do Mongo, é duplicado não capturado acima
-        if (error.code === 11000) {
-            return res.status(409).json({ error: 'Nome ou email já em uso' });
-        }
         console.error('Erro ao criar jogador:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
@@ -1348,6 +1320,64 @@ app.post('/api/matches/multiplayer', async (req, res) => {
         res.status(201).json(match);
     } catch (error) {
         console.error('Erro ao salvar partida multiplayer:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+// Buscar histórico de partidas
+app.get('/api/matches/:playerId', async (req, res) => {
+    try {
+        const { page = 1, limit = 10, deckTheme, result, dateFrom, dateTo } = req.query;
+        const skip = (page - 1) * limit;
+        
+        // Filter corrigido para incluir todas as partidas onde o jogador participou
+        const filter = {
+            $or: [
+                { playerId: new mongoose.Types.ObjectId(req.params.playerId) },
+                { 'commanders.playerId': req.params.playerId },
+                { winner: new mongoose.Types.ObjectId(req.params.playerId) },
+                { firstPlayer: new mongoose.Types.ObjectId(req.params.playerId) }
+            ]
+        };
+        
+        if (deckTheme) {
+            // Para filtrar por deck theme, precisamos verificar se o jogador usou esse deck
+            filter['commanders'] = {
+                $elemMatch: {
+                    playerId: req.params.playerId,
+                    theme: deckTheme
+                }
+            };
+        }
+        
+        if (result) {
+            if (result === 'win') {
+                filter.winner = new mongoose.Types.ObjectId(req.params.playerId);
+            } else if (result === 'loss') {
+                filter.winner = { $ne: new mongoose.Types.ObjectId(req.params.playerId) };
+            }
+        }
+        
+        if (dateFrom || dateTo) {
+            filter.date = {};
+            if (dateFrom) filter.date.$gte = new Date(dateFrom);
+            if (dateTo) filter.date.$lte = new Date(dateTo);
+        }
+        
+        const matches = await Match.find(filter)
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .skip(skip);
+            
+        const totalMatches = await Match.countDocuments(filter);
+        
+        res.json({
+            matches,
+            totalMatches,
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalMatches / limit)
+        });
+    } catch (error) {
+        console.error('Erro ao buscar partidas:', error);
         res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
@@ -1726,77 +1756,89 @@ app.post('/api/achievements/unlock-special', async (req, res) => {
             });
         }
         
-        // Lista de achievements especiais válidos
-        const specialAchievements = {
-            'commander_damage_kill': {
+        // Função para processar data local corretamente
+        function parseLocalDate(dateStr) {
+            if (!dateStr) return new Date();
+            if (dateStr instanceof Date) return dateStr;
+            // espera 'YYYY-MM-DD'
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d, 12, 0, 0); // meio-dia evita "voltar 1 dia" por timezone
+        }
+        
+        // Processar a data corretamente
+        const unlockedDate = customUnlockedAt ? parseLocalDate(customUnlockedAt) : new Date();
+        
+        // Buscar dados do achievement
+        const achievementData = {
+            first_win: { name: 'Primeira Vitória', xpReward: 50 },
+            win_10: { name: 'Veterano', xpReward: 100 },
+            win_50: { name: 'Campeão', xpReward: 200 },
+            win_100: { name: 'Lenda', xpReward: 500 },
+            first_match: { name: 'Primeiro Passo', xpReward: 25 },
+            match_10: { name: 'Dedicado', xpReward: 75 },
+            match_50: { name: 'Persistente', xpReward: 150 },
+            match_100: { name: 'Incansável', xpReward: 300 },
+            win_streak_3: { name: 'Em Chamas', xpReward: 75 },
+            win_streak_5: { name: 'Imparável', xpReward: 150 },
+            win_streak_10: { name: 'Dominador', xpReward: 300 },
+            archenemy_5: { name: 'Caçador de Arqui-inimigos', xpReward: 100 },
+            archenemy_15: { name: 'Pesadelo dos Arqui-inimigos', xpReward: 200 },
+            commander_mastery: { name: 'Maestria de Comandante', xpReward: 100 },
+            card_owner_10: { name: 'Dono das Cartas', xpReward: 75 },
+            card_owner_25: { name: 'Mestre das Cartas', xpReward: 100 },
+            card_owner_50: { name: 'Lenda das Cartas', xpReward: 200 },
+            commander_damage_kill: {
                 name: 'Golpe Fatal do Comandante',
                 description: 'Elimine um jogador com dano de comandante',
                 icon: '⚔️',
                 xpReward: 150
             },
-            'land_destruction': {
+            land_destruction: {
                 name: 'Destruidor de Terras',
                 description: 'Destrua uma Land',
                 icon: '💥',
                 xpReward: 100
             },
-            'total_land_destruction': {
+            total_land_destruction: {
                 name: 'Apocalipse de Terras',
                 description: 'Em uma única partida, destrua todas as lands de pelo menos um oponente',
                 icon: '🌋',
                 xpReward: 300
             },
-            'combo_win': {
+            combo_win: {
                 name: 'Mestre do Combo',
                 description: 'Ganhe uma partida combando',
                 icon: '🎯',
                 xpReward: 200
             },
-            'first_win_new_deck': {
+            first_win_new_deck: {
                 name: 'Estreia Vitoriosa',
                 description: 'Comece sua primeira partida com um deck novo e ganhe',
                 icon: '🌟',
                 xpReward: 300
             },
-            'precon_victory': {
+            precon_victory: {
                 name: 'Poder Pré-Construído',
                 description: 'Ganhe uma partida com um precon',
                 icon: '📦',
                 xpReward: 300
             }
-        };
+        }[achievementId] || { name: 'Achievement Especial', xpReward: 50 };
         
-        // Verificar se o achievement ID é válido
-        if (!specialAchievements[achievementId]) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Achievement especial não encontrado.' 
-            });
-        }
-        
-        const achievementData = specialAchievements[achievementId];
-        
-        // Validar se customUnlockedAt foi fornecido
-        if (!customUnlockedAt) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'customUnlockedAt é obrigatório' 
-            });
-        }
-        
-        // Criar o achievement no banco de dados
-        const newAchievement = await Achievement.create({
+        // Criar novo achievement
+        const newAchievement = new Achievement({
             playerId: playerId,
             achievementId: achievementId,
             name: achievementData.name,
-            description: achievementData.description,
-            icon: achievementData.icon,
-            unlocked: true,
-            progress: 1,
-            maxProgress: 1,
+            description: achievementData.description || 'Achievement especial desbloqueado via senha',
+            icon: achievementData.icon || '🏆',
             xpReward: achievementData.xpReward,
-            unlockedAt: new Date(customUnlockedAt)
+            progress: 1,
+            unlocked: true,
+            unlockedAt: unlockedDate  // Usando a data processada corretamente
         });
+        
+        await newAchievement.save();
         
         res.json({ 
             success: true, 
@@ -1911,7 +1953,8 @@ app.post('/api/demo/ranking-xp/:playerId', authenticateToken, requireMaster, asy
     }
 });
 
-// Endpoint para estatísticas de maestria por comandante (principal e partner separados)
+// Endpoint para estatísticas de comandantes removidos por jogador
+// Endpoint para estatísticas de maestria por comandante único
 app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
     try {
         const playerId = req.params.playerId;
@@ -1934,14 +1977,25 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
             const playerCommander = match.commanders.find(cmd => cmd.playerId === playerId);
             
             if (playerCommander) {
+                // Usar apenas o nome do comandante (sem partner) como chave única
+                const commanderKey = playerCommander.name;
+                
                 // Verificar se foi vitória
                 const isWin = match.winner.toString() === playerId || match.winner === playerId;
                 
-                // Processar comandante principal
-                const mainCommanderName = playerCommander.name;
-                if (!commanderStats[mainCommanderName]) {
-                    commanderStats[mainCommanderName] = {
-                        name: mainCommanderName,
+                // Encontrar quantas vezes o comandante foi removido nesta partida
+                const removalData = match.playerCommanderRemoved.find(removal => removal.playerId === playerId);
+                const removalsCount = removalData ? removalData.count : 0;
+                
+                // Verificar se o comandante foi carta do jogo E pertence ao jogador específico
+                const isGameCard = match.gameCard && 
+                    match.gameCard.ownerId === playerId &&
+                    (match.gameCard.name === playerCommander.name || 
+                     (playerCommander.partnerName && match.gameCard.name === playerCommander.partnerName));
+                
+                if (!commanderStats[commanderKey]) {
+                    commanderStats[commanderKey] = {
+                        name: playerCommander.name,
                         totalMatches: 0,
                         wins: 0,
                         totalRemovals: 0,
@@ -1949,57 +2003,10 @@ app.get('/api/commander-mastery-stats/:playerId', async (req, res) => {
                     };
                 }
                 
-                // Incrementar estatísticas do comandante principal
-                commanderStats[mainCommanderName].totalMatches += 1;
-                if (isWin) commanderStats[mainCommanderName].wins += 1;
-                
-                // Processar remoções do comandante principal
-                const mainRemovals = match.playerCommanderRemoved.filter(removal => 
-                    removal.playerId === playerId && 
-                    (!removal.type || removal.type === 'main') // Retrocompatibilidade
-                );
-                const mainRemovalCount = mainRemovals.reduce((sum, removal) => sum + (removal.count || 0), 0);
-                commanderStats[mainCommanderName].totalRemovals += mainRemovalCount;
-                
-                // Verificar se o comandante principal foi carta do jogo
-                if (match.gameCard && 
-                    match.gameCard.ownerId === playerId &&
-                    match.gameCard.name === mainCommanderName) {
-                    commanderStats[mainCommanderName].gameCardCount += 1;
-                }
-                
-                // Processar partner se existir
-                if (playerCommander.partnerName) {
-                    const partnerName = playerCommander.partnerName;
-                    if (!commanderStats[partnerName]) {
-                        commanderStats[partnerName] = {
-                            name: partnerName,
-                            totalMatches: 0,
-                            wins: 0,
-                            totalRemovals: 0,
-                            gameCardCount: 0
-                        };
-                    }
-                    
-                    // Incrementar estatísticas do partner
-                    commanderStats[partnerName].totalMatches += 1;
-                    if (isWin) commanderStats[partnerName].wins += 1;
-                    
-                    // Processar remoções do partner
-                    const partnerRemovals = match.playerCommanderRemoved.filter(removal => 
-                        removal.playerId === playerId && 
-                        removal.type === 'partner'
-                    );
-                    const partnerRemovalCount = partnerRemovals.reduce((sum, removal) => sum + (removal.count || 0), 0);
-                    commanderStats[partnerName].totalRemovals += partnerRemovalCount;
-                    
-                    // Verificar se o partner foi carta do jogo
-                    if (match.gameCard && 
-                        match.gameCard.ownerId === playerId &&
-                        match.gameCard.name === partnerName) {
-                        commanderStats[partnerName].gameCardCount += 1;
-                    }
-                }
+                commanderStats[commanderKey].totalMatches += 1;
+                if (isWin) commanderStats[commanderKey].wins += 1;
+                commanderStats[commanderKey].totalRemovals += removalsCount;
+                if (isGameCard) commanderStats[commanderKey].gameCardCount += 1;
             }
         });
         
