@@ -538,8 +538,8 @@ app.get('/api/matches/:playerId', async (req, res) => {
         const { page = 1, limit = 10, deckTheme, result, dateFrom, dateTo } = req.query;
         const skip = (page - 1) * limit;
         
-        // CORRIGIDO: Filtro para incluir todas as partidas onde o jogador participou
-        const baseFilter = {
+        // Filter corrigido para incluir todas as partidas onde o jogador participou
+        const filter = {
             $or: [
                 { playerId: new mongoose.Types.ObjectId(req.params.playerId) },
                 { 'commanders.playerId': req.params.playerId },
@@ -548,8 +548,23 @@ app.get('/api/matches/:playerId', async (req, res) => {
             ]
         };
         
-        // Construir filtro completo
-        const filter = { ...baseFilter };
+        if (deckTheme) {
+            // Para filtrar por deck theme, precisamos verificar se o jogador usou esse deck
+            filter['commanders'] = {
+                $elemMatch: {
+                    playerId: req.params.playerId,
+                    theme: deckTheme
+                }
+            };
+        }
+        
+        if (result) {
+            if (result === 'win') {
+                filter.winner = new mongoose.Types.ObjectId(req.params.playerId);
+            } else if (result === 'loss') {
+                filter.winner = { $ne: new mongoose.Types.ObjectId(req.params.playerId) };
+            }
+        }
         
         if (dateFrom || dateTo) {
             filter.date = {};
@@ -557,96 +572,12 @@ app.get('/api/matches/:playerId', async (req, res) => {
             if (dateTo) filter.date.$lte = new Date(dateTo);
         }
         
-        // Para filtros de deckTheme e result, precisamos usar aggregation
-        let pipeline = [
-            { $match: filter },
-            {
-                $addFields: {
-                    playerCommander: {
-                        $filter: {
-                            input: '$commanders',
-                            cond: { $eq: ['$$this.playerId', req.params.playerId] }
-                        }
-                    },
-                    playerResult: {
-                        $cond: [
-                            { $eq: ['$winner', new mongoose.Types.ObjectId(req.params.playerId)] },
-                            'win',
-                            'loss'
-                        ]
-                    }
-                }
-            }
-        ];
-        
-        // Aplicar filtros específicos se fornecidos
-        if (deckTheme) {
-            pipeline.push({
-                $match: {
-                    'playerCommander.theme': deckTheme
-                }
-            });
-        }
-        
-        if (result) {
-            pipeline.push({
-                $match: {
-                    playerResult: result
-                }
-            });
-        }
-        
-        // Adicionar ordenação, paginação
-        pipeline.push(
-            { $sort: { date: -1 } },
-            { $skip: skip },
-            { $limit: parseInt(limit) }
-        );
-        
-        const matches = await Match.aggregate(pipeline);
-        
-        // Contar total de partidas com os mesmos filtros
-        let countPipeline = [
-            { $match: filter },
-            {
-                $addFields: {
-                    playerCommander: {
-                        $filter: {
-                            input: '$commanders',
-                            cond: { $eq: ['$$this.playerId', req.params.playerId] }
-                        }
-                    },
-                    playerResult: {
-                        $cond: [
-                            { $eq: ['$winner', new mongoose.Types.ObjectId(req.params.playerId)] },
-                            'win',
-                            'loss'
-                        ]
-                    }
-                }
-            }
-        ];
-        
-        if (deckTheme) {
-            countPipeline.push({
-                $match: {
-                    'playerCommander.theme': deckTheme
-                }
-            });
-        }
-        
-        if (result) {
-            countPipeline.push({
-                $match: {
-                    playerResult: result
-                }
-            });
-        }
-        
-        countPipeline.push({ $count: 'total' });
-        
-        const totalResult = await Match.aggregate(countPipeline);
-        const totalMatches = totalResult.length > 0 ? totalResult[0].total : 0;
+        const matches = await Match.find(filter)
+            .sort({ createdAt: -1 })
+            .limit(parseInt(limit))
+            .skip(skip);
+            
+        const totalMatches = await Match.countDocuments(filter);
         
         res.json({
             matches,
