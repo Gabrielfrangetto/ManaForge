@@ -1291,6 +1291,24 @@ class MagicGameSystem {
         this.allMatchHistory = all;
     }
 
+    async goToHistoryPage(page) {
+        const target = Math.max(1, Math.min(page, this.historyTotalPages || 1));
+        await this.loadMatchHistory(target);
+        this.updateMatchHistory();
+        this.updateHistoryPagination();
+    }
+
+    updateHistoryPagination() {
+        const info = document.getElementById('historyPageInfo');
+        const prevBtn = document.getElementById('historyPrevBtn');
+        const nextBtn = document.getElementById('historyNextBtn');
+        if (info) {
+            info.textContent = `Página ${this.historyCurrentPage} de ${this.historyTotalPages}`;
+        }
+        if (prevBtn) prevBtn.disabled = this.historyCurrentPage <= 1;
+        if (nextBtn) nextBtn.disabled = this.historyCurrentPage >= this.historyTotalPages;
+    }
+
     setupEventListeners() {
         // Navegação entre abas
         document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -1323,6 +1341,11 @@ class MagicGameSystem {
                 this.updatePaginationControls();
             }
         }, 300));
+
+        const prevBtn = document.getElementById('historyPrevBtn');
+        const nextBtn = document.getElementById('historyNextBtn');
+        prevBtn?.addEventListener('click', async () => { await this.goToHistoryPage(this.historyCurrentPage - 1); });
+        nextBtn?.addEventListener('click', async () => { await this.goToHistoryPage(this.historyCurrentPage + 1); });
     }
 
     setupMatchForm() {
@@ -1978,6 +2001,7 @@ class MagicGameSystem {
         this.updateRanking();
         this.updateMissions();
         this.updateMatchHistory();
+        this.updateHistoryPagination();
         this.updateTopCommanders();
         this.updateGeneralTab();
         
