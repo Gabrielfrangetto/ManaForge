@@ -41,6 +41,11 @@ class MagicGameSystem {
         this.achievements = [];
         this.missions = this.initializeMissions();
         this.matchHistory = [];
+        this.historyLimit = 10;
+        this.historyCurrentPage = 1;
+        this.historyTotalPages = 1;
+        this.totalMatches = 0;
+        this.allMatchHistory = [];
         this.rankSystem = this.initializeRankSystem();
         
         // Propriedades para paginação e filtros de achievements
@@ -1030,7 +1035,8 @@ class MagicGameSystem {
                 // Recarregar dados apenas se o jogador atual participou
                 if (matchData.participants.includes(this.currentPlayerId)) {
                     await this.loadOrCreatePlayer();
-                    await this.loadMatchHistory();
+                    await this.loadMatchHistory(1);
+                    this.allMatchHistory = [];
                     this.updateUI();
                 }
             } else {
@@ -1241,17 +1247,18 @@ class MagicGameSystem {
         };
     }
 
-    async loadMatchHistory() {
+    async loadMatchHistory(page = 1) {
         try {
             if (this.currentPlayerId) {
-                // Corrigir a URL - remover '/player' da rota
-                const response = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}`, {
+                const response = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}?page=${page}&limit=${this.historyLimit}`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    // Garantir que sempre temos um array válido
-                    this.matchHistory = Array.isArray(data) ? data : (Array.isArray(data.matches) ? data.matches : []);
+                    this.matchHistory = Array.isArray(data.matches) ? data.matches : [];
+                    this.historyCurrentPage = parseInt(data.currentPage || page);
+                    this.historyTotalPages = parseInt(data.totalPages || 1);
+                    this.totalMatches = parseInt(data.totalMatches || this.matchHistory.length);
                     return;
                 }
             }
@@ -1259,8 +1266,29 @@ class MagicGameSystem {
             console.warn('Aviso: Não foi possível carregar o histórico de partidas:', error);
         }
         
-        // Fallback para array vazio em vez de dados locais problemáticos
         this.matchHistory = [];
+    }
+
+    async fetchMatchesPage(page = 1) {
+        const resp = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}?page=${page}&limit=${this.historyLimit}`, {
+            credentials: 'include'
+        });
+        if (!resp.ok) return { matches: [], currentPage: page, totalPages: 1, totalMatches: 0 };
+        return resp.json();
+    }
+
+    async ensureAllHistoryLoaded() {
+        if (!this.currentPlayerId) return;
+        if (this.allMatchHistory.length > 0 && this.allMatchHistory.length === this.totalMatches) return;
+        const first = await this.fetchMatchesPage(1);
+        this.historyTotalPages = parseInt(first.totalPages || 1);
+        this.totalMatches = parseInt(first.totalMatches || (first.matches?.length || 0));
+        const all = Array.isArray(first.matches) ? [...first.matches] : [];
+        for (let p = 2; p <= this.historyTotalPages; p++) {
+            const pageData = await this.fetchMatchesPage(p);
+            if (Array.isArray(pageData.matches)) all.push(...pageData.matches);
+        }
+        this.allMatchHistory = all;
     }
 
     setupEventListeners() {
@@ -2197,38 +2225,15 @@ class MagicGameSystem {
         }
     }
 
-    // Função para obter os 3 comandantes mais utilizados
-    getTopCommanders() {
-        const commanderStats = this.playerData?.commanderStats;
-        if (commanderStats && typeof commanderStats === 'object' && Object.keys(commanderStats).length > 0) {
-            const commanderArray = Object.entries(commanderStats)
-                .map(([name, stats]) => ({
-                    name,
-                    mainName: name,
-                    theme: stats.theme || null,
-                    total: stats.total || 0,
-                    wins: stats.wins || 0,
-                    winrate: (stats.total || 0) > 0 ? Math.round((stats.wins / stats.total) * 100) : 0
-                }))
-                .filter(commander => commander.total > 0)
-                .sort((a, b) => {
-                    if (b.total !== a.total) {
-                        return b.total - a.total;
-                    }
-                    return b.winrate - a.winrate;
-                })
-                .slice(0, 3);
-            return commanderArray;
-        }
-
-        if (!this.matchHistory || this.matchHistory.length === 0) {
+    // Função para obter os 3 comandantes mais utilizados a partir do histórico
+    getTopCommanders(sourceHistory = this.matchHistory) {
+        if (!sourceHistory || sourceHistory.length === 0) {
             return [];
         }
 
         const commanderUsage = {};
         
-        // Fallback: contar uso e vitórias a partir do histórico carregado
-        this.matchHistory.forEach(match => {
+        sourceHistory.forEach(match => {
             if (match.commanders && Array.isArray(match.commanders)) {
                 const playerCommander = match.commanders.find(cmd => 
                     cmd.playerId?.toString() === this.currentPlayerId?.toString()
@@ -2291,7 +2296,9 @@ class MagicGameSystem {
         
         topCommandersContainer.innerHTML = '';
         
-        const topCommanders = this.getTopCommanders();
+        await this.ensureAllHistoryLoaded();
+        const sourceHistory = this.allMatchHistory.length > 0 ? this.allMatchHistory : this.matchHistory;
+        const topCommanders = this.getTopCommanders(sourceHistory);
         
         // URLs das imagens de placeholder
         const placeholderImages = [
@@ -2853,7 +2860,7 @@ class MagicGameSystem {
         }
         
         // já vem ordenado pelo servidor (última registrada primeiro)
-        this.matchHistory.slice(0, 10).forEach(match => {
+        this.matchHistory.forEach(match => {
             if (!match) return; // Pular entradas inválidas
             
             // Determinar se foi vitória ou derrota baseado no winner
