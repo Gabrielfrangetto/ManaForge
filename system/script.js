@@ -2199,13 +2199,35 @@ class MagicGameSystem {
 
     // Função para obter os 3 comandantes mais utilizados
     getTopCommanders() {
+        const commanderStats = this.playerData?.commanderStats;
+        if (commanderStats && typeof commanderStats === 'object' && Object.keys(commanderStats).length > 0) {
+            const commanderArray = Object.entries(commanderStats)
+                .map(([name, stats]) => ({
+                    name,
+                    mainName: name,
+                    theme: stats.theme || null,
+                    total: stats.total || 0,
+                    wins: stats.wins || 0,
+                    winrate: (stats.total || 0) > 0 ? Math.round((stats.wins / stats.total) * 100) : 0
+                }))
+                .filter(commander => commander.total > 0)
+                .sort((a, b) => {
+                    if (b.total !== a.total) {
+                        return b.total - a.total;
+                    }
+                    return b.winrate - a.winrate;
+                })
+                .slice(0, 3);
+            return commanderArray;
+        }
+
         if (!this.matchHistory || this.matchHistory.length === 0) {
             return [];
         }
 
         const commanderUsage = {};
         
-        // Contar uso e vitórias de cada comandante (usando apenas o nome principal)
+        // Fallback: contar uso e vitórias a partir do histórico carregado
         this.matchHistory.forEach(match => {
             if (match.commanders && Array.isArray(match.commanders)) {
                 const playerCommander = match.commanders.find(cmd => 
@@ -2213,7 +2235,6 @@ class MagicGameSystem {
                 );
                 
                 if (playerCommander) {
-                    // Usar apenas o nome do comandante principal como chave
                     const commanderKey = playerCommander.name;
                     
                     if (!commanderUsage[commanderKey]) {
@@ -2232,7 +2253,6 @@ class MagicGameSystem {
                         commanderUsage[commanderKey].wins++;
                     }
                     
-                    // Atualizar tema se não estiver definido
                     if (!commanderUsage[commanderKey].theme && playerCommander.theme) {
                         commanderUsage[commanderKey].theme = playerCommander.theme;
                     }
@@ -2240,21 +2260,19 @@ class MagicGameSystem {
             }
         });
         
-        // Converter para array e ordenar por winrate (depois por total de partidas)
         const commanderArray = Object.values(commanderUsage)
-            .filter(commander => commander.total > 0) // Apenas comandantes com partidas
+            .filter(commander => commander.total > 0)
             .map(commander => ({
                 ...commander,
                 winrate: Math.round((commander.wins / commander.total) * 100)
             }))
             .sort((a, b) => {
-                // Ordenar por total de partidas primeiro (mais usado), depois por winrate
                 if (b.total !== a.total) {
                     return b.total - a.total;
                 }
                 return b.winrate - a.winrate;
             })
-            .slice(0, 3); // Pegar apenas os 3 primeiros
+            .slice(0, 3);
         
         return commanderArray;
     }
