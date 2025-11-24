@@ -285,6 +285,7 @@ const playerSchema = new mongoose.Schema({
     fastestWin: { type: Number, default: 999 },
     longestMatch: { type: Number, default: 0 },
     favoriteDecks: { type: mongoose.Schema.Types.Mixed, default: {} },
+    commanderStats: { type: mongoose.Schema.Types.Mixed, default: {} },
     cardOwnerCount: { type: Number, default: 0 }, // ADICIONAR ESTA LINHA
     // Adicionar estatísticas de firstPlayer
     firstPlayerStats: {
@@ -1179,6 +1180,9 @@ app.post('/api/matches/multiplayer', async (req, res) => {
                     if (isWinner) {
                         commanderStats[commander.name].wins += 1;
                     }
+                    
+                    // Persistir estatísticas do comandante no jogador principal
+                    updateData.commanderStats = commanderStats;
                     
                     // Atualizar estatísticas do partner (se existir)
                     if (commander.partnerPlayerId) {
