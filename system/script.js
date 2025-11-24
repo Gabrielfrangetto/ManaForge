@@ -1,10 +1,23 @@
 class MagicGameSystem {
     constructor() {
-        this.apiUrl = 'http://localhost:3000/api';
+        this.apiUrl = '/api';
         this.currentPlayerId = localStorage.getItem('currentPlayerId');
         this.playerData = null;
+        this.authToken = null; // Token agora vem via cookie
+        this.currentUser = null;
+        this.isAuthenticated = false;
         this.allPlayers = [];
+        this.updatingTopCommanders = false; // Flag para evitar execução simultânea
         this.commanders = [];
+        
+        // Sistema de timeout para inatividade
+        this.inactivityTimeout = 30 * 60 * 1000; // 30 minutos em millisegundos
+        this.inactivityTimer = null;
+        this.lastActivity = Date.now();
+        
+        // Sistema de verificação de sessão
+        this.sessionCheckInterval = null;
+        this.sessionWarningShown = false;
         this.selectedAvatar = null;
         this.avatarPlaceholders = [
             { emoji: '🧙‍♂️', color: '#ff8c00', name: 'Mago' },
@@ -36,6 +49,7 @@ class MagicGameSystem {
         this.currentCategoryFilter = 'all';
         this.currentSearchFilter = '';
         this.featuredAchievements = [];
+        this.achievementsControlsSetup = false;
         this.achievementManager = {
             getFeaturedAchievements: () => {
                 const featuredIds = JSON.parse(localStorage.getItem(`featuredAchievements_${this.currentPlayerId}`) || '[]');
@@ -52,14 +66,17 @@ class MagicGameSystem {
         this.featuredModalCurrentPage = 0;
         this.featuredModalItemsPerBatch = 20;
         this.featuredModalIsRendering = false;
-        
-        this.init();
     }
 
     async init() {
         try {
-            await this.loadAllPlayers();
-            await this.loadOrCreatePlayer();
+            // Verificar autenticação primeiro
+            const isAuthenticated = await this.checkAuthentication();
+            
+            if (isAuthenticated) {
+                await this.loadAllPlayers();
+                await this.loadOrCreatePlayer();
+            }
             
             // Garantir que matchHistory seja inicializado antes de updateUI
             if (!Array.isArray(this.matchHistory)) {
@@ -67,12 +84,12 @@ class MagicGameSystem {
             }
             
             this.setupEventListeners();
-        this.setupPlayerSelection();
-        this.setupAvatarSelection();
-        this.setupAchievementsControls();
-        this.updateUI();
-        this.startDailyReset();
-        this.setupMatchForm();
+            this.setupPlayerSelection();
+            this.setupAvatarSelection();
+            this.setupAchievementsControls();
+            this.updateUI();
+            this.startDailyReset();
+            this.setupMatchForm();
         } catch (error) {
             console.error('Erro durante inicialização:', error);
             // Garantir que temos dados mínimos para funcionar
@@ -88,12 +105,25 @@ class MagicGameSystem {
 
     async loadAllPlayers() {
         try {
-            const response = await fetch(`${this.apiUrl}/players`);
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Token agora vem via cookie httpOnly
+            
+            const response = await fetch(`${this.apiUrl}/players`, {
+                method: 'GET',
+                headers: headers,
+                credentials: 'include'
+            });
+            
             if (response.ok) {
                 this.allPlayers = await response.json();
                 this.updatePlayerSelector();
                 this.populateWinnerSelector();
                 this.populateArchenemySelector();
+            } else {
+                console.error('Erro ao carregar jogadores:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Erro ao carregar lista de jogadores:', error);
@@ -166,7 +196,9 @@ class MagicGameSystem {
 
     async switchPlayer(playerId) {
         try {
-            const response = await fetch(`${this.apiUrl}/player/id/${playerId}`);
+            const response = await fetch(`${this.apiUrl}/player/id/${playerId}`, {
+                credentials: 'include'
+            });
             if (response.ok) {
                 this.playerData = await response.json();
                 this.currentPlayerId = playerId;
@@ -174,6 +206,11 @@ class MagicGameSystem {
                 // Garantir que avatarId existe
                 if (this.playerData.avatarId === undefined || this.playerData.avatarId === null) {
                     this.playerData.avatarId = 0; // Avatar padrão
+                }
+                
+                // Garantir que frameId existe
+                if (this.playerData.frameId === undefined || this.playerData.frameId === null) {
+                    this.playerData.frameId = 'none'; // Frame padrão
                 }
                 
                 localStorage.setItem('currentPlayerId', playerId);
@@ -206,11 +243,23 @@ class MagicGameSystem {
 
     async createNewPlayerFromForm() {
         const name = document.getElementById('newPlayerName').value.trim();
+        const email = document.getElementById('newPlayerEmail').value.trim();
+        const password = document.getElementById('newPlayerPassword').value.trim();
         const title = document.getElementById('newPlayerTitle').value.trim();
         const avatar = document.getElementById('newPlayerAvatar').value.trim();
 
         if (!name) {
             this.showErrorMessage('Nome do jogador é obrigatório');
+            return;
+        }
+
+        if (!email) {
+            this.showErrorMessage('Email é obrigatório');
+            return;
+        }
+
+        if (!password) {
+            this.showErrorMessage('Senha é obrigatória');
             return;
         }
 
@@ -222,6 +271,8 @@ class MagicGameSystem {
 
         const newPlayerData = {
             name: name,
+            email: email,
+            password: password,
             title: title || 'Planeswalker Iniciante',
             avatar: avatar || 'https://via.placeholder.com/120x120/4a5568/ffffff?text=Avatar',
             level: 1,
@@ -240,11 +291,16 @@ class MagicGameSystem {
         };
 
         try {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Token agora vem via cookie httpOnly
+            
             const response = await fetch(`${this.apiUrl}/player`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers,
+                credentials: 'include',
                 body: JSON.stringify(newPlayerData)
             });
 
@@ -276,6 +332,9 @@ class MagicGameSystem {
         const cancelBtn = document.getElementById('cancelAvatar');
         const saveBtn = document.getElementById('saveAvatar');
 
+        // Configurar abas
+        this.setupAvatarTabs();
+
         // Usar delegação de eventos para o avatar
         document.addEventListener('click', (e) => {
             if (e.target.closest('.avatar-frame') || e.target.classList.contains('avatar-display')) {
@@ -302,24 +361,192 @@ class MagicGameSystem {
 
         // Salvar avatar selecionado
         saveBtn?.addEventListener('click', async () => {
-            if (this.selectedAvatar !== null) {
+            if (this.selectedAvatar !== null || this.selectedFrame !== null) {
                 try {
-                    await this.updatePlayerAvatar(this.selectedAvatar);
+                    // Salvar tanto avatar quanto frame
+                    if (this.selectedAvatar !== null) {
+                        await this.updatePlayerAvatar(this.selectedAvatar);
+                    }
+                    if (this.selectedFrame !== null) {
+                        await this.updatePlayerFrame(this.selectedFrame);
+                    }
                     if (avatarModal) {
                         avatarModal.style.display = 'none';
                     }
                 } catch (error) {
-                    console.error('Erro ao salvar avatar:', error);
-                    this.showErrorMessage('Erro ao salvar avatar');
+                    console.error('Erro ao salvar avatar/frame:', error);
+                    this.showErrorMessage('Erro ao salvar avatar/frame');
                 }
             } else {
-                this.showErrorMessage('Por favor, selecione um avatar');
+                this.showErrorMessage('Por favor, selecione um avatar ou frame');
             }
         });
     }
 
+    // Nova função para configurar as abas
+    setupAvatarTabs() {
+        const tabs = document.querySelectorAll('.avatar-tab');
+        const panels = document.querySelectorAll('.tab-panel');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+
+                // Remover classe active de todas as abas e painéis
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                // Adicionar classe active à aba clicada e seu painel
+                tab.classList.add('active');
+                document.getElementById(`${targetTab}-panel`).classList.add('active');
+
+                // Carregar conteúdo da aba se necessário
+                if (targetTab === 'frames') {
+                    this.loadFrames();
+                }
+            });
+        });
+    }
+
+    // Nova função para carregar frames
+    loadFrames() {
+        const frameGrid = document.getElementById('frameGrid');
+        
+        // Evitar recarregar se já foi carregado
+        if (frameGrid.children.length > 0) return;
+        
+        // Obter rank atual do jogador
+        const currentRankTier = this.playerData?.rankTier || 'Bronze';
+        
+        // Mapeamento de ranks para frames
+        const rankFrameMapping = {
+            'Bronze': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank'],
+            'Prata': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank'],
+            'Ouro': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank', 'goldrank'],
+            'Platina': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank', 'goldrank', 'platinumrank'],
+            'Diamante': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank', 'goldrank', 'platinumrank', 'diamondrank'],
+            'Master': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank', 'goldrank', 'platinumrank', 'diamondrank', 'masterrank'],
+            'Grandmaster': ['none', 'fire', 'ice', 'lightning', 'shadow', 'bronzerank', 'silverrank', 'goldrank', 'platinumrank', 'diamondrank', 'masterrank', 'grandmasterrank']
+        };
+        
+        // Lista completa de frames disponíveis
+        const allFrames = [
+            { id: 'none', name: 'Sem Frame', image: null },
+            { id: 'fire', name: 'Fire', image: 'assets/frames/basicfireframe.png' },
+            { id: 'ice', name: 'Ice', image: 'assets/frames/basiciceframe.png' },
+            { id: 'lightning', name: 'Lightning', image: 'assets/frames/basiclightningframe.png' },
+            { id: 'shadow', name: 'Shadow', image: 'assets/frames/basicshadowframe.png' },
+            { id: 'bronzerank', name: 'Bronze Rank', image: 'assets/frames/bronzerankframe.png' },
+            { id: 'silverrank', name: 'Silver Rank', image: 'assets/frames/silverrankframe.png' },
+            { id: 'goldrank', name: 'Gold Rank', image: 'assets/frames/goldrankframe.png' },
+            { id: 'platinumrank', name: 'Platinum Rank', image: 'assets/frames/platinumrankframe.png' },
+            { id: 'diamondrank', name: 'Diamond Rank', image: 'assets/frames/diamondrankframe.png' },
+            { id: 'masterrank', name: 'Master Rank', image: 'assets/frames/masterrankframe.png' },
+            { id: 'grandmasterrank', name: 'Grandmaster Rank', image: 'assets/frames/grandmasterrankframe.png' }
+        ];
+        
+        // Filtrar frames disponíveis baseado no rank
+        const availableFrameIds = rankFrameMapping[currentRankTier] || rankFrameMapping['Bronze'];
+        const frames = allFrames.filter(frame => availableFrameIds.includes(frame.id));
+        
+        frameGrid.innerHTML = '';
+        
+        frames.forEach(frame => {
+            const frameOption = document.createElement('div');
+            frameOption.className = 'frame-option';
+            frameOption.dataset.frameId = frame.id;
+            frameOption.title = frame.name;
+            
+            if (frame.image) {
+                // Usar o frame como background, igual ao perfil
+                frameOption.style.backgroundImage = `url('${frame.image}')`;
+                frameOption.style.backgroundSize = 'contain';
+                frameOption.style.backgroundRepeat = 'no-repeat';
+                frameOption.style.backgroundPosition = 'center';
+                frameOption.innerHTML = `<div class="frame-name">${frame.name}</div>`;
+            } else {
+                // Estilo especial para "Sem Frame"
+                frameOption.classList.add('no-frame');
+                frameOption.innerHTML = `
+                    <div style="color: #a0aec0; font-size: 32px; display: flex; align-items: center; justify-content: center; height: 100%;">🚫</div>
+                    <div class="frame-name">${frame.name}</div>
+                `;
+            }
+            
+            // Marcar frame atual como selecionado
+            if (this.playerData && this.playerData.frameId === frame.id) {
+                frameOption.classList.add('selected');
+                this.selectedFrame = frame.id;
+            }
+            
+            frameOption.addEventListener('click', () => {
+                // Remover seleção anterior
+                document.querySelectorAll('.frame-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                
+                // Selecionar novo frame
+                frameOption.classList.add('selected');
+                this.selectedFrame = frame.id;
+            });
+            
+            frameGrid.appendChild(frameOption);
+        });
+        
+        // Adicionar frames bloqueados para mostrar o que está por vir
+        const lockedFrameIds = allFrames.filter(frame => !availableFrameIds.includes(frame.id));
+        
+        lockedFrameIds.forEach(frame => {
+            const frameOption = document.createElement('div');
+            frameOption.className = 'frame-option locked';
+            frameOption.dataset.frameId = frame.id;
+            frameOption.title = `${frame.name} - Desbloqueado em ${this.getRequiredRankForFrame(frame.id)}`;
+            
+            if (frame.image) {
+                frameOption.style.backgroundImage = `url('${frame.image}')`;
+                frameOption.style.backgroundSize = 'contain';
+                frameOption.style.backgroundRepeat = 'no-repeat';
+                frameOption.style.backgroundPosition = 'center';
+                frameOption.style.filter = 'grayscale(100%) brightness(0.5)';
+                frameOption.innerHTML = `
+                    <div class="frame-name" style="color: #666;">${frame.name}</div>
+                    <div class="lock-icon" style="position: absolute; top: 5px; right: 5px; font-size: 20px;">🔒</div>
+                `;
+            }
+            
+            // Não permitir seleção de frames bloqueados
+            frameOption.style.cursor = 'not-allowed';
+            frameOption.style.opacity = '0.6';
+            
+            frameGrid.appendChild(frameOption);
+        });
+    }
+    
+    // Função auxiliar para obter o rank necessário para um frame
+    getRequiredRankForFrame(frameId) {
+        const frameRankMapping = {
+            'bronzerank': 'Bronze',
+            'silverrank': 'Prata',
+            'goldrank': 'Ouro',
+            'platinumrank': 'Platina',
+            'diamondrank': 'Diamante',
+            'masterrank': 'Master',
+            'grandmasterrank': 'Grandmaster'
+        };
+        
+        return frameRankMapping[frameId] || 'Bronze';
+    }
+
     openAvatarModal() {
         const avatarModal = document.getElementById('avatarModal');
+        
+        // Resetar para a aba de avatares
+        document.querySelectorAll('.avatar-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        
+        document.querySelector('[data-tab="avatars"]').classList.add('active');
+        document.getElementById('avatars-panel').classList.add('active');
+        
         const avatarGrid = document.getElementById('avatarGrid');
         
         // Limpar grid
@@ -394,6 +621,7 @@ class MagicGameSystem {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(this.playerData)
             });
 
@@ -415,26 +643,134 @@ class MagicGameSystem {
         }
     }
 
+    async updatePlayerFrame(frameId) {
+        console.log('🔄 Atualizando frame:', { frameId, currentPlayerId: this.currentPlayerId });
+        
+        if (!this.playerData || !this.currentPlayerId) {
+            this.showErrorMessage('Erro: Dados do jogador não encontrados');
+            return;
+        }
+
+        try {
+            // Atualizar dados locais
+            this.playerData.frameId = frameId;
+            
+            console.log('💾 Salvando frame no servidor:', this.playerData);
+            
+            // Salvar no servidor
+            const response = await fetch(`${this.apiUrl}/player/${this.currentPlayerId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(this.playerData)
+            });
+
+            if (response.ok) {
+                const savedData = await response.json();
+                console.log('✅ Frame salvo no servidor:', savedData.frameId);
+                
+                // Atualizar interface
+                this.updatePlayerAvatarDisplay(this.playerData.avatarId || 0);
+                this.showSuccessMessage('Frame atualizado com sucesso!');
+            } else {
+                const errorData = await response.text();
+                console.error('❌ Erro do servidor:', errorData);
+                throw new Error(`Erro ao salvar no servidor: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao atualizar frame:', error);
+            this.showErrorMessage(`Erro ao atualizar frame: ${error.message}`);
+        }
+    }
+
     updatePlayerAvatarDisplay(avatarId) {
         const avatarImg = document.getElementById('playerAvatar');
         const avatar = this.avatarPlaceholders[avatarId] || this.avatarPlaceholders[0];
         
-        // Remover a imagem e usar div com emoji
         const avatarFrame = avatarImg ? avatarImg.parentElement : document.querySelector('.avatar-frame');
         if (!avatarFrame) {
             console.error('Avatar frame não encontrado');
             return;
         }
         
-        // Preservar o level badge atual
         const currentLevel = this.playerData ? this.playerData.level : 1;
+        const currentFrameId = this.playerData ? this.playerData.frameId : null;
         
+        // Obter informações do frame
+        const frames = [
+            { id: 'none', name: 'Sem Frame', image: null },
+            { id: 'fire', name: 'Fire', image: 'assets/frames/basicfireframe.png' },
+            { id: 'ice', name: 'Ice', image: 'assets/frames/basiciceframe.png' },
+            { id: 'lightning', name: 'Lightning', image: 'assets/frames/basiclightningframe.png' },
+            { id: 'shadow', name: 'Shadow', image: 'assets/frames/basicshadowframe.png' },
+            { id: 'bronzerank', name: 'Bronze Rank', image: 'assets/frames/bronzerankframe.png' },
+            { id: 'silverrank', name: 'Silver Rank', image: 'assets/frames/silverrankframe.png' },
+            { id: 'goldrank', name: 'Gold Rank', image: 'assets/frames/goldrankframe.png' },
+            { id: 'platinumrank', name: 'Platinum Rank', image: 'assets/frames/platinumrankframe.png' },
+            { id: 'diamondrank', name: 'Diamond Rank', image: 'assets/frames/diamondrankframe.png' },
+            { id: 'masterrank', name: 'Master Rank', image: 'assets/frames/masterrankframe.png' },
+            { id: 'grandmasterrank', name: 'Grandmaster Rank', image: 'assets/frames/grandmasterrankframe.png' }
+        ];
+        
+        const currentFrame = frames.find(f => f.id === currentFrameId);
+        
+        const rankStyles = {
+            bronzerank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            silverrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            goldrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            platinumrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            diamondrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            masterrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            },
+            grandmasterrank: {
+                top: '-37px',
+                left: '-27px',
+                width: '172px',
+                height: '195px'
+            }
+        };
+        const style = rankStyles[currentFrameId] || {
+            top: '-38px',
+            left: '-35px',
+            width: '192px',
+            height: '200px'
+        };
         avatarFrame.innerHTML = `
             <div style="
-                width: 100%;
-                height: 100%;
+                width: 120px;
+                height: 120px;
                 border-radius: 50%;
-                border: 4px solid #ff8c00;
                 background: linear-gradient(135deg, ${avatar.color} 0%, ${this.darkenColor(avatar.color, 20)} 100%);
                 display: flex;
                 align-items: center;
@@ -442,7 +778,38 @@ class MagicGameSystem {
                 font-size: 60px;
                 transition: all 0.3s ease;
                 cursor: pointer;
-            " class="avatar-display">${avatar.emoji}</div>
+                position: relative;
+            " class="avatar-display">
+                ${avatar.emoji}
+            </div>
+            ${currentFrame && currentFrame.image ? `
+                <div style="
+                position: absolute;
+                ${currentFrameId === 'lightning' ? `
+                    top: -50px;
+                    left: -27px;
+                    width: 175px;
+                    height: 227px;
+                ` : currentFrameId === 'shadow' ? `
+                    top: -34px;
+                    left: -37px;
+                    width: 198px;
+                    height: 198px;
+                ` : `
+                    top: ${style.top};
+                    left: ${style.left};
+                    width: ${style.width};
+                    height: ${style.height};
+                `}
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 10;
+                background-image: url('${currentFrame.image}');
+                background-size: contain;
+                background-position: center;
+                background-repeat: no-repeat;
+            " class="avatar-frame-overlay"></div>
+            ` : ''}
             <div class="level-badge" id="levelBadge">${currentLevel}</div>
         `;
         
@@ -457,6 +824,8 @@ class MagicGameSystem {
 
     clearNewPlayerForm() {
         document.getElementById('newPlayerName').value = '';
+        document.getElementById('newPlayerEmail').value = '';
+        document.getElementById('newPlayerPassword').value = '';
         document.getElementById('newPlayerTitle').value = 'Planeswalker Iniciante';
         document.getElementById('newPlayerAvatar').value = '';
     }
@@ -464,13 +833,20 @@ class MagicGameSystem {
     async loadOrCreatePlayer() {
         try {
             if (this.currentPlayerId) {
-                const response = await fetch(`${this.apiUrl}/player/id/${this.currentPlayerId}`);
+                const response = await fetch(`${this.apiUrl}/player/id/${this.currentPlayerId}`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     this.playerData = await response.json();
                     
                     // Garantir que avatarId existe
                     if (this.playerData.avatarId === undefined || this.playerData.avatarId === null) {
                         this.playerData.avatarId = 0; // Avatar padrão
+                    }
+                    
+                    // Garantir que frameId existe
+                    if (this.playerData.frameId === undefined || this.playerData.frameId === null) {
+                        this.playerData.frameId = 'none'; // Frame padrão
                     }
                     
                     // Carregar estatísticas do servidor
@@ -517,6 +893,7 @@ class MagicGameSystem {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(playerData)
             });
             
@@ -544,6 +921,7 @@ class MagicGameSystem {
             manaCoins: 250,
             avatar: "https://via.placeholder.com/120x120/4a5568/ffffff?text=Avatar",
             avatarId: 0, // Adicionar avatarId padrão
+            frameId: 'none', // Adicionar frameId padrão
             rankPoints: 1247,
             rank: "Bronze II",
             rankIcon: "🥉",
@@ -567,6 +945,7 @@ class MagicGameSystem {
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify(this.playerData)
                 });
                 
@@ -594,11 +973,16 @@ class MagicGameSystem {
         
         try {
             // Salvar a partida
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Token agora vem via cookie httpOnly
+            
             const response = await fetch(`${this.apiUrl}/matches/multiplayer`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers,
+                credentials: 'include',
                 body: JSON.stringify(matchData)
             });
 
@@ -607,24 +991,46 @@ class MagicGameSystem {
                 this.closeMatchForm();
                 this.clearMatchForm();
                 
-                // Recarregar dados se o jogador atual participou
+                // NOVA LÓGICA: Processar achievements para TODOS os participantes
+                if (matchData.participants && matchData.participants.length > 0) {
+                    console.log('🎮 Iniciando processamento de achievements para participantes:', matchData.participants);
+                    
+                    for (const participantId of matchData.participants) {
+                        console.log(`🔄 Processando achievements para jogador: ${participantId}`);
+                        try {
+                            // Carregar estatísticas atualizadas do servidor para cada participante
+                            const statsResponse = await fetch(`${this.apiUrl}/stats/${participantId}`, {
+                                credentials: 'include'
+                            });
+                            
+                            if (statsResponse.ok) {
+                                const participantStats = await statsResponse.json();
+                                console.log(`📊 Estatísticas carregadas para ${participantId}:`, participantStats);
+                                
+                                // Processar conquistas para este participante
+                                const unlockedAchievements = await this.achievementSystem.processMatchAchievements(
+                                    matchData, 
+                                    participantId,  // ← CORREÇÃO: Processar para cada participante
+                                    participantStats,
+                                    this
+                                );
+                                
+                                console.log(`🏆 Achievements processados para ${participantId}:`, unlockedAchievements.length);
+                            } else {
+                                console.error(`❌ Erro ao carregar stats para ${participantId}:`, statsResponse.status);
+                            }
+                        } catch (error) {
+                            console.error(`❌ Erro ao processar achievements para jogador ${participantId}:`, error);
+                        }
+                    }
+                    
+                    console.log('✅ Processamento de achievements concluído para todos os participantes');
+                }
+                
+                // Recarregar dados apenas se o jogador atual participou
                 if (matchData.participants.includes(this.currentPlayerId)) {
                     await this.loadOrCreatePlayer();
                     await this.loadMatchHistory();
-                    
-                    // CORREÇÃO: Carregar estatísticas atualizadas do servidor ANTES de processar conquistas
-                    const updatedStats = await this.loadPlayerStats();
-                    
-                    // NOVA INTEGRAÇÃO: Processar conquistas com estatísticas atualizadas
-                    if (updatedStats) {
-                        await this.achievementSystem.processMatchAchievements(
-                            matchData, 
-                            this.currentPlayerId, 
-                            updatedStats,  // Usar estatísticas do servidor em vez de this.playerData
-                            this
-                        );
-                    }
-                    
                     this.updateUI();
                 }
             } else {
@@ -653,6 +1059,16 @@ class MagicGameSystem {
                                 break;
                             case 'win_streak':
                                 achievement.progress = this.playerData.winStreak || 0;
+                                break;
+                            case 'archenemy_count':
+                                achievement.progress = this.playerData.archenemyCount || 0;
+                                break;
+
+                            case 'match_count':
+                                achievement.progress = this.playerData.totalMatches || 0;
+                                break;
+                            case 'card_owner_count':
+                                achievement.progress = this.playerData.cardOwnerCount || 0;
                                 break;
                         }
                     }
@@ -714,30 +1130,114 @@ class MagicGameSystem {
     initializeRankSystem() {
         return {
             ranks: [
-                { name: 'Bronze III', icon: '🥉', minXP: 0, maxXP: 180, color: '#cd7f32' },
-                { name: 'Bronze II', icon: '🥉', minXP: 180, maxXP: 380, color: '#cd7f32' },
-                { name: 'Bronze I', icon: '🥉', minXP: 380, maxXP: 600, color: '#cd7f32' },
-                { name: 'Prata III', icon: '🥈', minXP: 600, maxXP: 840, color: '#c0c0c0' },
-                { name: 'Prata II', icon: '🥈', minXP: 840, maxXP: 1100, color: '#c0c0c0' },
-                { name: 'Prata I', icon: '🥈', minXP: 1100, maxXP: 1380, color: '#c0c0c0' },
-                { name: 'Ouro III', icon: '🥇', minXP: 1380, maxXP: 1680, color: '#ffd700' },
-                { name: 'Ouro II', icon: '🥇', minXP: 1680, maxXP: 2000, color: '#ffd700' },
-                { name: 'Ouro I', icon: '🥇', minXP: 2000, maxXP: 2340, color: '#ffd700' },
-                { name: 'Platina III', icon: '💎', minXP: 2340, maxXP: 2700, color: '#e5e4e2' },
-                { name: 'Platina II', icon: '💎', minXP: 2700, maxXP: 3080, color: '#e5e4e2' },
-                { name: 'Platina I', icon: '💎', minXP: 3080, maxXP: 3480, color: '#e5e4e2' },
-                { name: 'Diamante III', icon: '💠', minXP: 3480, maxXP: 3900, color: '#b9f2ff' },
-                { name: 'Diamante II', icon: '💠', minXP: 3900, maxXP: 4340, color: '#b9f2ff' },
-                { name: 'Diamante I', icon: '💠', minXP: 4340, maxXP: 4800, color: '#b9f2ff' },
-                { name: 'Mestre III', icon: '👑', minXP: 4800, maxXP: 5300, color: '#ff6b6b' },
-                { name: 'Mestre II', icon: '👑', minXP: 5300, maxXP: 5820, color: '#ff6b6b' },
-                { name: 'Mestre I', icon: '👑', minXP: 5820, maxXP: 6360, color: '#ff6b6b' },
-                { name: 'Grão-Mestre III', icon: '⭐', minXP: 6360, maxXP: 6960, color: '#ff8c00' },
-                { name: 'Grão-Mestre II', icon: '⭐', minXP: 6960, maxXP: 7580, color: '#ff8c00' },
-                { name: 'Grão-Mestre I', icon: '⭐', minXP: 7580, maxXP: 999999, color: '#ff8c00' }
+                // Bronze
+                { name: 'Bronze III', icon: '🥉', image: 'assets/ranks/bronzerank.png', minXP: 0, maxXP: 180, color: '#cd7f32', tier: 'bronze' },
+                { name: 'Bronze II', icon: '🥉', image: 'assets/ranks/bronzerank.png', minXP: 180, maxXP: 200, color: '#cd7f32', tier: 'bronze' },
+                { name: 'Bronze I', icon: '🥉', image: 'assets/ranks/bronzerank.png', minXP: 200, maxXP: 220, color: '#cd7f32', tier: 'bronze' },
+                
+                // Prata
+                { name: 'Prata III', icon: '🥈', image: 'assets/ranks/silverrank.png', minXP: 220, maxXP: 240, color: '#c0c0c0', tier: 'prata' },
+                { name: 'Prata II', icon: '🥈', image: 'assets/ranks/silverrank.png', minXP: 240, maxXP: 260, color: '#c0c0c0', tier: 'prata' },
+                { name: 'Prata I', icon: '🥈', image: 'assets/ranks/silverrank.png', minXP: 260, maxXP: 280, color: '#c0c0c0', tier: 'prata' },
+                
+                // Ouro
+                { name: 'Ouro III', icon: '🥇', image: 'assets/ranks/goldrank.png', minXP: 280, maxXP: 300, color: '#ffd700', tier: 'ouro' },
+                { name: 'Ouro II', icon: '🥇', image: 'assets/ranks/goldrank.png', minXP: 300, maxXP: 320, color: '#ffd700', tier: 'ouro' },
+                { name: 'Ouro I', icon: '🥇', image: 'assets/ranks/goldrank.png', minXP: 320, maxXP: 340, color: '#ffd700', tier: 'ouro' },
+                
+                // Platina
+                { name: 'Platina III', icon: '💎', image: 'assets/ranks/platinumrank.png', minXP: 340, maxXP: 360, color: '#e5e4e2', tier: 'platina' },
+                { name: 'Platina II', icon: '💎', image: 'assets/ranks/platinumrank.png', minXP: 360, maxXP: 380, color: '#e5e4e2', tier: 'platina' },
+                { name: 'Platina I', icon: '💎', image: 'assets/ranks/platinumrank.png', minXP: 380, maxXP: 400, color: '#e5e4e2', tier: 'platina' },
+                
+                // Diamante
+                { name: 'Diamante III', icon: '💠', image: 'assets/ranks/diamondrank.png', minXP: 400, maxXP: 420, color: '#b9f2ff', tier: 'diamante' },
+                { name: 'Diamante II', icon: '💠', image: 'assets/ranks/diamondrank.png', minXP: 420, maxXP: 440, color: '#b9f2ff', tier: 'diamante' },
+                { name: 'Diamante I', icon: '💠', image: 'assets/ranks/diamondrank.png', minXP: 440, maxXP: 460, color: '#b9f2ff', tier: 'diamante' },
+                
+                // Master
+                { name: 'Master III', icon: '👑', image: 'assets/ranks/masterrank.png', minXP: 460, maxXP: 500, color: '#ff6b6b', tier: 'master' },
+                { name: 'Master II', icon: '👑', image: 'assets/ranks/masterrank.png', minXP: 500, maxXP: 520, color: '#ff6b6b', tier: 'master' },
+                { name: 'Master I', icon: '👑', image: 'assets/ranks/masterrank.png', minXP: 520, maxXP: 540, color: '#ff6b6b', tier: 'master' },
+                
+                // Grandmaster
+                { name: 'Grandmaster III', icon: '⭐', image: 'assets/ranks/grandmasterrank.png', minXP: 540, maxXP: 600, color: '#ff8c00', tier: 'grandmaster' },
+                { name: 'Grandmaster II', icon: '⭐', image: 'assets/ranks/grandmasterrank.png', minXP: 600, maxXP: 620, color: '#ff8c00', tier: 'grandmaster' },
+                { name: 'Grandmaster I', icon: '⭐', image: 'assets/ranks/grandmasterrank.png', minXP: 620, maxXP: 999999, color: '#ff8c00', tier: 'grandmaster' }
             ],
             winXP: 25,
             lossXP: 15
+        };
+    }
+
+    initializeTitleSystem() {
+        return {
+            titles: [
+                {
+                    id: 'planeswalker_iniciante',
+                    name: 'Planeswalker Iniciante',
+                    description: 'Título inicial de todos os jogadores',
+                    unlockCondition: 'default',
+                    requiredAchievements: [],
+                    unlocked: true
+                },
+                {
+                    id: 'veterano',
+                    name: 'Veterano das Batalhas',
+                    description: 'Ganhe 10 partidas',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['win_10'],
+                    unlocked: false
+                },
+                {
+                    id: 'campeao',
+                    name: 'Campeão Supremo',
+                    description: 'Ganhe 50 partidas',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['win_50'],
+                    unlocked: false
+                },
+                {
+                    id: 'velocista',
+                    name: 'Mestre da Velocidade',
+                    description: 'Ganhe uma partida no turno 6',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['fast_win'],
+                    unlocked: false
+                },
+                {
+                    id: 'archenemy_master',
+                    name: 'Senhor do Caos',
+                    description: 'Seja o Archenemy 5 vezes',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['archenemy_5'],
+                    unlocked: false
+                },
+                {
+                    id: 'commander_slayer',
+                    name: 'Caçador de Comandantes',
+                    description: 'Remova 25 comandantes',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['commander_removed_25'],
+                    unlocked: false
+                },
+                {
+                    id: 'perfectionist',
+                    name: 'Perfeccionista',
+                    description: 'Complete múltiplos achievements de precisão',
+                    unlockCondition: 'achievement',
+                    requiredAchievements: ['perfect_landdrops_10', 'no_mulligan_10'],
+                    unlocked: false
+                },
+                {
+                    id: 'grandmaster',
+                    name: 'Grão-Mestre Planeswalker',
+                    description: 'Alcance o rank Grandmaster',
+                    unlockCondition: 'rank',
+                    requiredRank: 'Grandmaster',
+                    unlocked: false
+                }
+            ]
         };
     }
 
@@ -745,7 +1245,9 @@ class MagicGameSystem {
         try {
             if (this.currentPlayerId) {
                 // Corrigir a URL - remover '/player' da rota
-                const response = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}`);
+                const response = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const data = await response.json();
                     // Garantir que sempre temos um array válido
@@ -772,11 +1274,27 @@ class MagicGameSystem {
 
         // Modal de conquistas
         document.querySelector('.close').addEventListener('click', () => {
-            document.getElementById('achievementModal').style.display = 'none';
+            const modal = document.getElementById('achievementModal');
+            modal.style.display = 'none';
+            modal.classList.remove('show');
         });
+
+        // Setup do seletor de título
+        this.setupTitleSelector();
 
         // Botões de demonstração
         this.setupDemoButtons();
+        
+        // Setup do formulário de alteração de senha
+        this.setupChangePasswordForm();
+        
+        // Recalcular paginação quando a janela for redimensionada
+        window.addEventListener('resize', this.debounce(async () => {
+            if (document.getElementById('achievements').style.display !== 'none') {
+                await this.updateAchievementsList();
+                this.updatePaginationControls();
+            }
+        }, 300));
     }
 
     setupMatchForm() {
@@ -1006,7 +1524,7 @@ class MagicGameSystem {
             previewElement.classList.add('show');
             
             // Usar URL completa para garantir que funcione
-            const url = `http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`;
+            const url = `/api/cards/search/${encodeURIComponent(cardName)}`;
             console.log('📡 URL da requisição:', url);
             
             const response = await fetch(url);
@@ -1341,7 +1859,46 @@ class MagicGameSystem {
         }.bind(this);
     }
 
+    setupTitleSelector() {
+        const titleSelect = document.getElementById('playerTitleSelect');
+        if (titleSelect) {
+            titleSelect.addEventListener('change', async (e) => {
+                const newTitle = e.target.value;
+                await this.updatePlayerTitleValue(newTitle);
+            });
+        }
+    }
+
+    async updatePlayerTitleValue(newTitle) {
+        try {
+            const response = await fetch(`${this.apiUrl}/player/${this.currentPlayerId}/title`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ title: newTitle })
+            });
+            
+            if (response.ok) {
+                this.playerData.title = newTitle;
+                document.getElementById('playerTitle').textContent = newTitle;
+                this.showSuccessMessage(`Título alterado para: ${newTitle}`);
+            } else {
+                this.showErrorMessage('Erro ao alterar título');
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar título:', error);
+            this.showErrorMessage('Erro ao alterar título');
+        }
+    }
+
     setupDemoButtons() {
+        // Só criar botões de demonstração se o usuário for master
+        if (!this.currentUser || !this.currentUser.isMaster) {
+            return;
+        }
+        
         // Criar botões de demonstração se não existirem
         if (!document.querySelector('.demo-buttons')) {
             const demoSection = document.createElement('div');
@@ -1394,13 +1951,17 @@ class MagicGameSystem {
         this.updateMissions();
         this.updateMatchHistory();
         this.updateTopCommanders();
+        this.updateGeneralTab();
+        
+        // Definir aba 'Geral' (ex-Estatísticas) como padrão
+        this.switchTab('stats');
     }
 
     updatePlayerInfo() {
         if (!this.playerData) return;
         
         document.getElementById('playerName').textContent = this.playerData.name;
-        document.getElementById('playerTitle').textContent = this.playerData.title;
+        this.updatePlayerTitle();
         document.getElementById('manaCoins').textContent = `🔮 ${this.playerData.manaCoins}`;
         
         // Atualizar avatar - usar o avatarId salvo no servidor
@@ -1411,6 +1972,84 @@ class MagicGameSystem {
         const xpPercentage = (this.playerData.xp / this.playerData.xpToNext) * 100;
         document.getElementById('xpBar').style.width = `${xpPercentage}%`;
         document.getElementById('xpText').textContent = `${this.playerData.xp} / ${this.playerData.xpToNext} XP`;
+        
+        // Atualizar título
+        this.updatePlayerTitle();
+    }
+
+    updatePlayerTitle() {
+        const titleSelect = document.getElementById('playerTitleSelect');
+        if (!titleSelect) return;
+        
+        // Definir o título atual
+        titleSelect.value = this.playerData.title || 'Planeswalker Iniciante';
+        
+        // Atualizar títulos disponíveis
+        this.updateAvailableTitles();
+    }
+
+    async updateAvailableTitles() {
+        const titleSelect = document.getElementById('playerTitleSelect');
+        const titleUnlockInfo = document.getElementById('titleUnlockInfo');
+        if (!titleSelect) return;
+        
+        const titleSystem = this.initializeTitleSystem();
+        const playerAchievements = await this.loadPlayerAchievements();
+        const currentRank = this.playerData.rankTier || 'Bronze';
+        
+        // Limpar opções existentes
+        titleSelect.innerHTML = '';
+        
+        let unlockedCount = 0;
+        
+        titleSystem.titles.forEach(title => {
+            let isUnlocked = false;
+            
+            if (title.unlockCondition === 'default') {
+                isUnlocked = true;
+            } else if (title.unlockCondition === 'achievement') {
+                isUnlocked = title.requiredAchievements.every(achievementId => 
+                    playerAchievements.some(pa => pa.achievement_id === achievementId && pa.unlocked)
+                );
+            } else if (title.unlockCondition === 'rank') {
+                const rankOrder = ['Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante', 'Master', 'Grandmaster'];
+                const currentRankIndex = rankOrder.indexOf(currentRank);
+                const requiredRankIndex = rankOrder.indexOf(title.requiredRank);
+                isUnlocked = currentRankIndex >= requiredRankIndex;
+            }
+            
+            if (isUnlocked) {
+                unlockedCount++;
+                const option = document.createElement('option');
+                option.value = title.name;
+                option.textContent = title.name;
+                option.title = title.description;
+                titleSelect.appendChild(option);
+            }
+        });
+        
+        // Atualizar informação de desbloqueio
+        if (titleUnlockInfo) {
+            if (unlockedCount > 1) {
+                titleUnlockInfo.textContent = `🏆 ${unlockedCount}/${titleSystem.titles.length} títulos desbloqueados`;
+            } else {
+                titleUnlockInfo.textContent = '🔒 Desbloqueie mais títulos completando achievements!';
+            }
+        }
+    }
+
+    async loadPlayerAchievements() {
+        try {
+            const response = await fetch(`${this.apiUrl}/achievements/${this.currentPlayerId}`, {
+                credentials: 'include'
+            });
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.error('Erro ao carregar achievements:', error);
+        }
+        return [];
     }
 
     async updateStats() {
@@ -1465,7 +2104,9 @@ class MagicGameSystem {
     async loadPlayerStats() {
         try {
             if (this.currentPlayerId) {
-                const response = await fetch(`${this.apiUrl}/stats/${this.currentPlayerId}`);
+                const response = await fetch(`${this.apiUrl}/stats/${this.currentPlayerId}`, {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const stats = await response.json();
                     
@@ -1477,6 +2118,9 @@ class MagicGameSystem {
                     this.playerData.longestMatch = stats.longestMatch;
                     this.playerData.mostUsedDeck = stats.mostUsedDeck;
                     this.playerData.deckStats = stats.deckStats;
+                    // CORREÇÃO: Adicionar as estatísticas que estavam faltando
+                    this.playerData.archenemyCount = stats.archenemyCount;
+                    this.playerData.commanderRemovals = stats.commanderRemovals;
                     
                     return stats;
                 }
@@ -1604,11 +2248,11 @@ class MagicGameSystem {
                 winrate: Math.round((commander.wins / commander.total) * 100)
             }))
             .sort((a, b) => {
-                // Ordenar por winrate primeiro, depois por total de partidas
-                if (b.winrate !== a.winrate) {
-                    return b.winrate - a.winrate;
+                // Ordenar por total de partidas primeiro (mais usado), depois por winrate
+                if (b.total !== a.total) {
+                    return b.total - a.total;
                 }
-                return b.total - a.total;
+                return b.winrate - a.winrate;
             })
             .slice(0, 3); // Pegar apenas os 3 primeiros
         
@@ -1617,8 +2261,15 @@ class MagicGameSystem {
 
     // Função para atualizar a exibição dos top comandantes
     async updateTopCommanders() {
+        // Evitar execução simultânea
+        if (this.updatingTopCommanders) return;
+        this.updatingTopCommanders = true;
+        
         const topCommandersContainer = document.getElementById('topCommandersGrid');
-        if (!topCommandersContainer) return;
+        if (!topCommandersContainer) {
+            this.updatingTopCommanders = false;
+            return;
+        }
         
         topCommandersContainer.innerHTML = '';
         
@@ -1640,11 +2291,28 @@ class MagicGameSystem {
             if (commander) {
                 // Comandante real
                 const winrate = commander.total > 0 ? Math.round((commander.wins / commander.total) * 100) : 0;
-                const cardImageUrl = await this.getCardImageUrl(commander.mainName);
+                
+                // dentro do loop que cria cada card de comandante favorito:
+                const partnerName = await this.getLikelyPartnerFor(commander.name);
+                const frontUrl = await this.getCardImageUrlByName(commander.name);
+                
+                let imageHtml;
+                if (partnerName) {
+                    const backUrl = await this.getCardImageUrlByName(partnerName);
+                    imageHtml = `
+                        <div class="favorite-stack">
+                            <img class="card-back" src="${backUrl}" alt="${partnerName}">
+                            <img class="card-front" src="${frontUrl}" alt="${commander.name}">
+                        </div>
+                    `;
+                } else {
+                    // sem partner → mantém uma única imagem
+                    imageHtml = `<img class="card-front" src="${frontUrl}" alt="${commander.name}" style="width:210px; border-radius:12px; box-shadow:0 8px 22px rgba(0,0,0,.45)" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">`;
+                }
                 
                 commanderElement.innerHTML = `
                     <div class="commander-image">
-                        <img src="${cardImageUrl}" alt="${commander.name}" onerror="this.src='https://via.placeholder.com/208x290/4a5568/ffffff?text=Card'">
+                        <div class="image-slot">${imageHtml}</div>
                     </div>
                     <div class="commander-info">
                         <div class="commander-name">${commander.name}</div>
@@ -1680,6 +2348,9 @@ class MagicGameSystem {
             
             topCommandersContainer.appendChild(commanderElement);
         }
+        
+        // Reset do flag para permitir futuras execuções
+        this.updatingTopCommanders = false;
     }
 
     // Função auxiliar para obter URL da imagem da carta
@@ -1696,9 +2367,39 @@ class MagicGameSystem {
         return 'https://via.placeholder.com/120x168/4a5568/ffffff?text=Card';
     }
 
-    updateAchievements() {
+    // Retorna a imagem de uma carta (usa helper do projeto se existir; senão cai no Scryfall)
+    // helper: devolve o partner mais comum para esse comandante (pelos seus matches já carregados)
+    async getLikelyPartnerFor(commanderName) {
+        // 1) se sua API já retornar partner no objeto de top commander, use direto
+        const inStats = (this.playerStats?.topCommanders || []).find(c => c.name === commanderName);
+        if (inStats?.partnerName) return inStats.partnerName;
+
+        // 2) fallback: procurar nos matches do jogador
+        const freq = {};
+        for (const m of (this.matchHistory || [])) {
+            const me = (m.commanders || []).find(
+                c => c.playerId === this.currentPlayerId && c.name === commanderName && c.partnerName
+            );
+            if (me?.partnerName) freq[me.partnerName] = (freq[me.partnerName] || 0) + 1;
+        }
+        return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || null;
+    }
+
+    // helper: devolve URL da imagem da carta (use a mesma função que você já usa no resto do app)
+    async getCardImageUrlByName(name) {
+        // Reaproveite sua função existente; se não tiver uma unificada, você pode usar a rota/Cache do seu backend
+        // ou o padrão do Scryfall. Exemplo:
+        // return `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}&format=image`;
+        return await this.getCardImageUrl(name); // <- se você já tem esta função
+    }
+
+    async updateAchievements() {
         this.updateFeaturedAchievements();
-        this.updateAchievementsList();
+        
+        // Aguardar o próximo frame para garantir que o DOM esteja renderizado
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        
+        await this.updateAchievementsList();
         this.updatePaginationControls();
     }
 
@@ -1735,20 +2436,71 @@ class MagicGameSystem {
                 </div>
             `;
             
-            if (achievement.unlocked) {
+            // Adicionar evento de clique para achievements desbloqueados ou especiais
+            if (achievement.unlocked || achievement.requiresPassword) {
                 achievementElement.addEventListener('click', () => {
                     this.showAchievementModal(achievement.id);
                 });
+                
+                // Adicionar cursor pointer para indicar que é clicável
+                achievementElement.style.cursor = 'pointer';
             }
             
             featuredContainer.appendChild(achievementElement);
         });
     }
 
-    updateAchievementsList() {
+    // Função para calcular dinamicamente quantos achievements cabem no grid
+    calculateDynamicAchievementsPerPage() {
+        return new Promise((resolve) => {
+            const achievementsContainer = document.getElementById('achievementsList');
+            if (!achievementsContainer) {
+                resolve(10); // fallback
+                return;
+            }
+            
+            const checkDimensions = () => {
+                const containerWidth = achievementsContainer.offsetWidth || achievementsContainer.clientWidth;
+                const containerHeight = window.innerHeight * 0.6; // Usar 60% da altura da tela
+                
+                // Se o contêiner ainda não tem largura, aguardar mais um pouco
+                if (containerWidth === 0) {
+                    setTimeout(checkDimensions, 50);
+                    return;
+                }
+                
+                // Dimensões de cada achievement card (baseado no CSS)
+                const cardMinWidth = 200; // minmax(200px, 1fr)
+                const cardHeight = 280; // altura aproximada do card + padding
+                const gap = 20; // gap do grid
+                
+                // Calcular quantas colunas cabem (mínimo 1)
+                const columns = Math.max(1, Math.floor((containerWidth + gap) / (cardMinWidth + gap)));
+                
+                // Calcular quantas linhas cabem na altura disponível (mínimo 2)
+                const rows = Math.max(2, Math.floor((containerHeight + gap) / (cardHeight + gap)));
+                
+                // Total de achievements que cabem na tela (pelo menos 2 fileiras)
+                const totalPerPage = Math.max(columns * rows, columns * 2, 6); // garantir pelo menos 2 fileiras
+                
+                resolve(totalPerPage);
+            };
+            
+            // Aguardar o próximo frame e então verificar as dimensões
+            requestAnimationFrame(() => {
+                setTimeout(checkDimensions, 10);
+            });
+        });
+    }
+
+    async updateAchievementsList() {
         const achievementsContainer = document.getElementById('achievementsList');
         if (!achievementsContainer) return;
         
+        // Aguardar o cálculo dinâmico da paginação
+        this.achievementsPerPage = await this.calculateDynamicAchievementsPerPage();
+        
+        // Limpar container completamente
         achievementsContainer.innerHTML = '';
         
         // Filtrar achievements
@@ -1770,20 +2522,29 @@ class MagicGameSystem {
             );
         }
         
-        // Paginação
+        // Atualizar informações de paginação ANTES de calcular a paginação
+        this.totalFilteredAchievements = filteredAchievements.length;
+        this.totalAchievementsPages = Math.ceil(filteredAchievements.length / this.achievementsPerPage);
+        
+        // Validar e corrigir página atual
+        if (this.totalAchievementsPages > 0 && this.currentAchievementsPage > this.totalAchievementsPages) {
+            this.currentAchievementsPage = this.totalAchievementsPages;
+        }
+        if (this.currentAchievementsPage < 1) {
+            this.currentAchievementsPage = 1;
+        }
+        
+        // Calcular paginação com página já validada
         const startIndex = (this.currentAchievementsPage - 1) * this.achievementsPerPage;
         const endIndex = startIndex + this.achievementsPerPage;
         const paginatedAchievements = filteredAchievements.slice(startIndex, endIndex);
-        
-        // Atualizar informações de paginação
-        this.totalFilteredAchievements = filteredAchievements.length;
-        this.totalAchievementsPages = Math.ceil(filteredAchievements.length / this.achievementsPerPage);
         
         if (paginatedAchievements.length === 0) {
             achievementsContainer.innerHTML = '<div class="no-achievements">Nenhuma conquista encontrada.</div>';
             return;
         }
         
+        // Renderizar achievements
         paginatedAchievements.forEach(achievement => {
             const achievementElement = document.createElement('div');
             achievementElement.className = `achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}`;
@@ -1805,7 +2566,9 @@ class MagicGameSystem {
                 </div>
             `;
             
-            if (achievement.unlocked) {
+            // Adicionar evento de clique para achievements desbloqueados ou que requerem senha
+            if (achievement.unlocked || achievement.requiresPassword) {
+                achievementElement.style.cursor = 'pointer';
                 achievementElement.addEventListener('click', () => {
                     this.showAchievementModal(achievement.id);
                 });
@@ -1822,6 +2585,14 @@ class MagicGameSystem {
         const totalInfo = document.getElementById('totalAchievementsInfo');
         
         if (!prevBtn || !nextBtn || !pageInfo || !totalInfo) return;
+        
+        // Validar e corrigir página atual se necessário
+        if (this.totalAchievementsPages > 0 && this.currentAchievementsPage > this.totalAchievementsPages) {
+            this.currentAchievementsPage = this.totalAchievementsPages;
+        }
+        if (this.currentAchievementsPage < 1) {
+            this.currentAchievementsPage = 1;
+        }
         
         // Atualizar botões
         prevBtn.disabled = this.currentAchievementsPage <= 1;
@@ -1844,13 +2615,14 @@ class MagicGameSystem {
         const currentRank = this.rankSystem.ranks.find(rank => rank.name === currentRankName) || this.rankSystem.ranks[0];
         const nextRank = this.getNextRank();
         
+        // Renderizar ícone com imagem
+        this.renderRankIcon(currentRank, currentRankDivision);
+        
         // Atualizar elementos da UI
-        const rankIcon = document.getElementById('rankIcon');
         const rankName = document.getElementById('rankName');
         const rankPoints = document.getElementById('rankPoints');
         const rankXpInfo = document.getElementById('rankXpInfo');
         
-        if (rankIcon) rankIcon.textContent = currentRank.icon;
         if (rankName) rankName.textContent = currentRank.name;
         if (rankPoints) rankPoints.textContent = `${this.playerData.rankXP || 0} pontos de ranking`;
         
@@ -1909,15 +2681,77 @@ class MagicGameSystem {
         return this.rankSystem.ranks[0];
     }
 
-    getNextRank() {
-        const currentRank = this.getCurrentRank();
-        const currentIndex = this.rankSystem.ranks.findIndex(rank => rank.name === currentRank.name);
+    // Função para renderizar o ícone de ranking com imagem
+    renderRankIcon(rank, division = null) {
+        const rankIcon = document.getElementById('rankIcon');
+        if (!rankIcon) return;
         
-        if (currentIndex < this.rankSystem.ranks.length - 1) {
-            return this.rankSystem.ranks[currentIndex + 1];
+        // Limpar conteúdo anterior
+        rankIcon.innerHTML = '';
+        
+        // Remover classes anteriores
+        rankIcon.className = 'rank-icon';
+        
+        // Adicionar classe do tier
+        if (rank.tier) {
+            rankIcon.classList.add(rank.tier);
         }
         
-        return null; // Já está no rank máximo
+        // Adicionar indicador de divisão
+        if (division) {
+            rankIcon.setAttribute('data-division', division);
+        }
+        
+        // Tentar carregar imagem
+        if (rank.image) {
+            const img = document.createElement('img');
+            img.src = rank.image;
+            img.alt = rank.name;
+            img.title = rank.name;
+            
+            // Fallback para emoji se imagem não carregar
+            img.onerror = () => {
+                rankIcon.innerHTML = rank.icon;
+                rankIcon.classList.add('emoji-fallback');
+            };
+            
+            rankIcon.appendChild(img);
+        } else {
+            // Usar emoji como fallback
+            rankIcon.innerHTML = rank.icon;
+            rankIcon.classList.add('emoji-fallback');
+        }
+    }
+
+    getNextRank() {
+        if (!this.playerData) return null;
+        
+        const currentRankTier = this.playerData.rankTier || 'Bronze';
+        const currentRankDivision = this.playerData.rankDivision || 'III';
+        
+        // Definir ordem dos tiers e divisões
+        const tiers = ['Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante', 'Master', 'Grandmaster'];
+        const divisions = ['III', 'II', 'I'];
+        
+        const currentTierIndex = tiers.indexOf(currentRankTier);
+        const currentDivisionIndex = divisions.indexOf(currentRankDivision);
+        
+        // Se não está na divisão I, próxima divisão no mesmo tier
+        if (currentDivisionIndex < divisions.length - 1) {
+            const nextDivision = divisions[currentDivisionIndex + 1];
+            const nextRankName = `${currentRankTier} ${nextDivision}`;
+            return this.rankSystem.ranks.find(rank => rank.name === nextRankName);
+        }
+        
+        // Se está na divisão I, próximo tier divisão III
+        if (currentTierIndex < tiers.length - 1) {
+            const nextTier = tiers[currentTierIndex + 1];
+            const nextRankName = `${nextTier} III`;
+            return this.rankSystem.ranks.find(rank => rank.name === nextRankName);
+        }
+        
+        // Já está no rank máximo (Grandmaster I)
+        return null;
     }
 
     addRankXP(amount, isWin = true) {
@@ -2000,8 +2834,8 @@ class MagicGameSystem {
             return;
         }
         
-        // Reverter a ordem para mostrar as partidas mais recentes primeiro
-        this.matchHistory.slice().reverse().slice(0, 10).forEach(match => {
+        // já vem ordenado pelo servidor (última registrada primeiro)
+        this.matchHistory.slice(0, 10).forEach(match => {
             if (!match) return; // Pular entradas inválidas
             
             // Determinar se foi vitória ou derrota baseado no winner
@@ -2089,23 +2923,37 @@ class MagicGameSystem {
         // Preencher cartas e outros dados
         this.populateCardsAndOtherData(match);
         
-        // Mostrar o modal
+        // Mostrar modal
         modal.style.display = 'block';
+        modal.classList.add('show');
         
-        // Configurar botão de fechar
+        // Configurar botão de fechar - usar addEventListener ao invés de onclick
         const closeBtn = document.getElementById('closeMatchDetails');
         if (closeBtn) {
-            closeBtn.onclick = () => {
+            // Remover listeners anteriores para evitar duplicação
+            closeBtn.replaceWith(closeBtn.cloneNode(true));
+            const newCloseBtn = document.getElementById('closeMatchDetails');
+            
+            newCloseBtn.addEventListener('click', () => {
                 modal.style.display = 'none';
-            };
+                modal.classList.remove('show');
+            });
         }
         
-        // Fechar ao clicar fora do modal
-        window.onclick = (event) => {
+        // Fechar ao clicar fora do modal - usar addEventListener
+        const handleOutsideClick = (event) => {
             if (event.target === modal) {
                 modal.style.display = 'none';
+                modal.classList.remove('show');
+                // Remover o listener após uso
+                document.removeEventListener('click', handleOutsideClick);
             }
         };
+        
+        // Adicionar listener com delay para evitar fechamento imediato
+        setTimeout(() => {
+            document.addEventListener('click', handleOutsideClick);
+        }, 100);
     }
 
     populateBasicMatchInfo(match) {
@@ -2229,9 +3077,44 @@ class MagicGameSystem {
         this.populatePlayerStatSection('detailLandDrop', 'landDropSection', match.playerLandDrop, 
             (player) => player.missed ? 'Sim' : 'Não', 'Nenhum land drop registrado');
 
-        // Comandante Removido
-        this.populatePlayerStatSection('detailCommanderRemoved', 'commanderRemovedSection', match.playerCommanderRemoved, 
-            (player) => `${player.count} vez(es)`, 'Nenhuma remoção de comandante registrada');
+        // Comandante Removido (agregado por jogador; soma principal+partner e garante todos os jogadores)
+        (() => {
+            const raw = Array.isArray(match.playerCommanderRemoved) ? match.playerCommanderRemoved : [];
+            const byPlayer = new Map();
+
+            // Agregar counts por jogador e por tipo
+            raw.forEach(entry => {
+                const pid = entry?.playerId?.toString ? entry.playerId.toString() : entry.playerId;
+                if (!pid) return;
+                const prev = byPlayer.get(pid) || { playerId: pid, main: 0, partner: 0, count: 0 };
+                const c = parseInt(entry?.count, 10) || 0;
+                if (entry?.type === 'partner') prev.partner += c;
+                else prev.main += c; // trata undefined como 'main' (retrocompat)
+                prev.count = prev.main + prev.partner;
+                byPlayer.set(pid, prev);
+            });
+
+            // Garantir todos os jogadores da partida (mesmo com 0 remoções)
+            (match.commanders || []).forEach(c => {
+                const pid = c?.playerId?.toString ? c.playerId.toString() : c.playerId;
+                if (pid && !byPlayer.has(pid)) {
+                    byPlayer.set(pid, { playerId: pid, main: 0, partner: 0, count: 0 });
+                }
+            });
+
+            const normalized = Array.from(byPlayer.values());
+            this.populatePlayerStatSection(
+                'detailCommanderRemoved',
+                'commanderRemovedSection',
+                normalized,
+                (player) => {
+                    const hasPartner = (player.partner || 0) > 0;
+                    const breakdown = hasPartner ? ` (principal ${player.main}, partner ${player.partner})` : '';
+                    return `${player.count} vez(es)${breakdown}`;
+                },
+                'Nenhuma remoção de comandante registrada'
+            );
+        })();
     }
 
     populatePlayerStatSection(containerId, sectionId, data, valueFormatter, emptyMessage) {
@@ -2283,11 +3166,26 @@ class MagicGameSystem {
         const gameCardSection = document.getElementById('gameCardSection');
         
         if (gameCardContainer && gameCardSection) {
-            if (match.gameCard && match.gameCard.name) {
+            const gc = match.gameCard || {};
+            if (gc && (gc.name || gc.imageUrl)) {
                 gameCardSection.style.display = 'block';
+        
+                // Buscar imagem caso venha só o nome
+                let imgUrl = gc.imageUrl || '';
+                if (!imgUrl && gc.name && typeof this.getCardImageUrl === 'function') {
+                    try { imgUrl = await this.getCardImageUrl(gc.name); } catch(e) { console.warn('Falha ao buscar imagem da Carta do Jogo:', e); }
+                }
+        
+                const ownerName = this.getPlayerNameById(gc.ownerId) || 'Jogador não encontrado';
+                const safeName = gc.name || 'Carta não informada';
+        
                 gameCardContainer.innerHTML = `
                     <div class="game-card-display">
-                        ${match.gameCard.imageUrl ? `<img src="${match.gameCard.imageUrl}" alt="${match.gameCard.name}">` : ''}
+                        ${imgUrl ? `<img src="${imgUrl}" alt="${safeName}">` : ''}
+                        <div class="game-card-meta">
+                            <div class="game-card-name">"${safeName}"</div>
+                            <div class="game-card-owner">Dono: <strong>${ownerName}</strong></div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -2316,7 +3214,7 @@ class MagicGameSystem {
                     // Se não tiver imagem, tentar buscar na API
                     if (!cardImage && cardName) {
                         try {
-                            const response = await fetch(`http://localhost:3000/api/cards/search/${encodeURIComponent(cardName)}`);
+                            const response = await fetch(`/api/cards/search/${encodeURIComponent(cardName)}`);
                             if (response.ok) {
                                 const cardData = await response.json();
                                 const cardArray = Array.isArray(cardData) ? cardData : [cardData];
@@ -2377,23 +3275,27 @@ class MagicGameSystem {
     }
 
     setupAchievementsControls() {
+        // Evitar configurar listeners múltiplas vezes
+        if (this.achievementsControlsSetup) return;
+        this.achievementsControlsSetup = true;
+        
         // Filtro por categoria
         const categoryFilter = document.getElementById('categoryFilter');
         if (categoryFilter) {
-            categoryFilter.addEventListener('change', (e) => {
+            categoryFilter.addEventListener('change', async (e) => {
                 this.currentCategoryFilter = e.target.value;
                 this.currentAchievementsPage = 1;
-                this.updateAchievements();
+                await this.updateAchievements();
             });
         }
         
         // Busca
         const searchInput = document.getElementById('achievementSearch');
         if (searchInput) {
-            searchInput.addEventListener('input', this.debounce((e) => {
+            searchInput.addEventListener('input', this.debounce(async (e) => {
                 this.currentSearchFilter = e.target.value;
                 this.currentAchievementsPage = 1;
-                this.updateAchievements();
+                await this.updateAchievements();
             }, 300));
         }
         
@@ -2402,19 +3304,19 @@ class MagicGameSystem {
         const nextBtn = document.getElementById('nextPageBtn');
         
         if (prevBtn) {
-            prevBtn.addEventListener('click', () => {
+            prevBtn.addEventListener('click', async () => {
                 if (this.currentAchievementsPage > 1) {
                     this.currentAchievementsPage--;
-                    this.updateAchievements();
+                    await this.updateAchievements();
                 }
             });
         }
         
         if (nextBtn) {
-            nextBtn.addEventListener('click', () => {
+            nextBtn.addEventListener('click', async () => {
                 if (this.currentAchievementsPage < this.totalAchievementsPages) {
                     this.currentAchievementsPage++;
-                    this.updateAchievements();
+                    await this.updateAchievements();
                 }
             });
         }
@@ -2722,9 +3624,137 @@ class MagicGameSystem {
         const achievement = this.achievements.find(a => a.id === achievementId);
         if (!achievement) return;
         
-        document.getElementById('modalAchievementName').textContent = achievement.name;
-        document.getElementById('modalAchievementDesc').textContent = achievement.description;
-        document.getElementById('achievementModal').style.display = 'block';
+        // Elementos do modal
+        const modal = document.getElementById('achievementModal');
+        const titleElement = document.getElementById('modalAchievementTitle');
+        const nameElement = document.getElementById('modalAchievementName');
+        const descElement = document.getElementById('modalAchievementDesc');
+        const xpElement = document.getElementById('modalAchievementXP');
+        const dateElement = document.getElementById('modalAchievementDate');
+        const specialSection = document.getElementById('specialAchievementSection');
+        const passwordInput = document.getElementById('achievementPassword');
+        const errorDiv = document.getElementById('passwordError');
+        const successDiv = document.getElementById('passwordSuccess');
+        
+        // Preencher informações básicas
+        nameElement.textContent = achievement.name;
+        descElement.textContent = achievement.description;
+        xpElement.textContent = `+${achievement.xpReward} XP`;
+        
+        // Exibir data de desbloqueio se disponível
+        if (achievement.unlockedAt && achievement.unlocked) {
+            const date = new Date(achievement.unlockedAt);
+            dateElement.textContent = `📅 Desbloqueado em: ${date.toLocaleDateString('pt-BR')}`;
+            dateElement.style.display = 'block';
+        } else {
+            dateElement.style.display = 'none';
+        }
+        
+        // Verificar se é um achievement especial
+        if (achievement.requiresPassword && !achievement.unlocked) {
+            titleElement.textContent = 'Achievement Especial';
+            specialSection.style.display = 'block';
+            
+            // Limpar campos
+            passwordInput.value = '';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            // Configurar evento do botão de desbloqueio
+            const unlockBtn = document.getElementById('unlockSpecialBtn');
+            unlockBtn.onclick = () => this.handleSpecialUnlock(achievementId);
+            
+            // Permitir Enter para desbloquear
+            passwordInput.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    this.handleSpecialUnlock(achievementId);
+                }
+            };
+        } else {
+            titleElement.textContent = achievement.unlocked ? 'Conquista Desbloqueada!' : 'Conquista';
+            specialSection.style.display = 'none';
+        }
+        
+        modal.style.display = 'block';
+        modal.classList.add('show');
+    }
+    
+    async handleSpecialUnlock(achievementId) {
+        const passwordInput = document.getElementById('achievementPassword');
+        const errorDiv = document.getElementById('passwordError');
+        const successDiv = document.getElementById('passwordSuccess');
+        const unlockBtn = document.getElementById('unlockSpecialBtn');
+        
+        const password = passwordInput.value.trim();
+        
+        if (!password) {
+            this.showPasswordError('Por favor, digite a senha.');
+            return;
+        }
+        
+        // Desabilitar botão durante o processo
+        unlockBtn.disabled = true;
+        unlockBtn.textContent = '🔄 Desbloqueando...';
+        
+        try {
+            // Capturar a data customizada do input
+            const customDateInput = document.getElementById('customUnlockDate');
+            const customUnlockedAt = customDateInput && customDateInput.value ? customDateInput.value : null;
+            
+            const result = await this.achievementSystem.unlockSpecialAchievement(
+                achievementId, 
+                password, 
+                this.currentPlayerId,
+                customUnlockedAt
+            );
+            
+            if (result.success) {
+                // Atualizar achievement local
+                const achievement = this.achievements.find(a => a.id === achievementId);
+                if (achievement) {
+                    achievement.unlocked = true;
+                    achievement.progress = achievement.maxProgress;
+                }
+                
+                // Mostrar sucesso
+                successDiv.textContent = result.message;
+                successDiv.style.display = 'block';
+                errorDiv.style.display = 'none';
+                
+                // Adicionar XP
+                this.addXP(achievement.xpReward);
+                
+                // Mostrar notificação
+                this.showNotification('🏆 Achievement Especial Desbloqueado!', 
+                    `${achievement.name} - +${achievement.xpReward} XP`);
+                
+                // Atualizar UI
+                await this.updateAchievements();
+                await this.updateAchievementsList();
+                
+                // Fechar modal após 2 segundos
+                setTimeout(() => {
+                    const modal = document.getElementById('achievementModal');
+                    modal.style.display = 'none';
+                    modal.classList.remove('show');
+                }, 2000);
+            }
+        } catch (error) {
+            this.showPasswordError(error.message);
+        } finally {
+            // Reabilitar botão
+            unlockBtn.disabled = false;
+            unlockBtn.textContent = '🔓 Desbloquear';
+        }
+    }
+    
+    showPasswordError(message) {
+        const errorDiv = document.getElementById('passwordError');
+        const successDiv = document.getElementById('passwordSuccess');
+        
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        successDiv.style.display = 'none';
     }
 
     simulateMatch(result) {
@@ -3075,7 +4105,7 @@ class MagicGameSystem {
                     <option value="Lifegain">Lifegain</option>
                     <option value="Mill">Mill</option>
                     <option value="Self-Mill">Self-Mill</option>
-                    <option value="Stax">Stax</option>
+                    <option value="Control // Stax">Control // Stax</option>
                     <option value="Theft">Theft</option>
                     <option value="Tokens // +1/+1 Counters">Tokens // +1/+1 Counters</option>
                     <option value="Voltron">Voltron</option>
@@ -3522,7 +4552,7 @@ class MagicGameSystem {
             // CAMPO OBRIGATÓRIO: ID do jogador que está registrando a partida
             playerId: this.currentPlayerId,
             
-            date: matchDateElement ? new Date(matchDateElement.value) : new Date(),
+            date: matchDateElement ? matchDateElement.value : new Date().toISOString().split('T')[0],
             turns: matchTurnsElement ? parseInt(matchTurnsElement.value) : 0,
             firstPlayer: firstPlayerElement ? firstPlayerElement.value : '',
             
@@ -3628,11 +4658,16 @@ class MagicGameSystem {
         // 5. Preencher comandante removido
         this.autoFillCommanderRemoved(playerNames);
         
-        // 6. Preencher ranking
-        this.autoFillRanking(playerNames);
+        // REMOVER: 6. Preencher ranking (agora deve ser manual)
+        // this.autoFillRanking(playerNames);
         
         // Mostrar mensagem de sucesso
         this.showAutoFillSuccess(playerNames.length);
+        
+        // Mostrar aviso sobre campos manuais
+        setTimeout(() => {
+            alert('✅ Jogadores distribuídos!\n\n⚠️ Lembre-se de preencher manualmente:\n• Quem começou\n• Vencedor\n• Ranking da partida (1º, 2º, 3º, 4º)');
+        }, 500);
     }
 
     autoFillCommanders(playerNames) {
@@ -3649,20 +4684,25 @@ class MagicGameSystem {
             const lastEntry = entries[entries.length - 1];
             
             if (lastEntry) {
-                const playerSelect = lastEntry.querySelector('.commander-player');
-                if (playerSelect) {
-                    // Buscar o jogador pelo nome e usar o ID
-                    const player = this.allPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-                    if (player) {
-                        playerSelect.value = player._id; // Usar ID em vez do nome
+                // AGUARDAR que o DOM seja atualizado antes de popular
+                setTimeout(() => {
+                    this.populateCommanderPlayersInEntry(lastEntry);
+                    
+                    const playerSelect = lastEntry.querySelector('.commander-player');
+                    if (playerSelect) {
+                        // Buscar o jogador pelo nome e usar o ID
+                        const player = this.allPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+                        if (player) {
+                            playerSelect.value = player._id;
+                        }
                     }
-                }
+                }, 100); // Pequeno delay para garantir que o DOM foi atualizado
                 
                 // Configurar busca de cartas para os campos de comandante
                 const commanderInput = lastEntry.querySelector('.commander-input');
                 const partnerInput = lastEntry.querySelector('.commander-partner');
-                const commanderPreview = lastEntry.querySelector('.commander-preview');
-                const partnerPreview = lastEntry.querySelector('.commander-partner-preview');
+                const commanderPreview = lastEntry.querySelector('.card-preview');
+                const partnerPreview = lastEntry.querySelector('.partner-preview');
                 
                 if (commanderInput && commanderPreview) {
                     this.setupCardSearch(commanderInput, commanderPreview);
@@ -3672,9 +4712,6 @@ class MagicGameSystem {
                 }
             }
         });
-        
-        // Reconfigurar os comandantes
-        this.setupCommandersInput();
     }
 
     autoFillMulligans(playerNames) {
@@ -3782,60 +4819,11 @@ class MagicGameSystem {
     }
 
     autoFillRanking(playerNames) {
-        // Preencher seletores de ranking
-        const rankingSelectors = [
-            document.getElementById('firstPlace'),
-            document.getElementById('secondPlace'),
-            document.getElementById('thirdPlace'),
-            document.getElementById('fourthPlace')
-        ];
+        // REMOVER: Não preencher automaticamente ranking, primeiro jogador e vencedor
+        // Estes campos devem ser preenchidos manualmente pelo usuário
         
-        rankingSelectors.forEach((selector, index) => {
-            if (selector && playerNames[index]) {
-                // Limpar opções existentes
-                selector.innerHTML = '<option value="">Selecione o jogador...</option>';
-                
-                // Adicionar todos os jogadores como opções usando IDs
-                playerNames.forEach(playerName => {
-                    const player = this.allPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-                    if (player) {
-                        const option = document.createElement('option');
-                        option.value = player._id; // Usar ID em vez do nome
-                        option.textContent = player.name;
-                        selector.appendChild(option);
-                    }
-                });
-            }
-        });
-        
-        // Preencher outros seletores
-        const otherSelectors = [
-            document.getElementById('firstPlayer'),
-            document.getElementById('winner'),
-            document.getElementById('archenemy')
-        ];
-        
-        otherSelectors.forEach(selector => {
-            if (selector) {
-                // Manter a primeira opção
-                const firstOption = selector.querySelector('option');
-                selector.innerHTML = '';
-                if (firstOption) {
-                    selector.appendChild(firstOption);
-                }
-                
-                // Adicionar jogadores usando IDs
-                playerNames.forEach(playerName => {
-                    const player = this.allPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-                    if (player) {
-                        const option = document.createElement('option');
-                        option.value = player._id; // Usar ID em vez do nome
-                        option.textContent = player.name;
-                        selector.appendChild(option);
-                    }
-                });
-            }
-        });
+        // Comentar ou remover todo o conteúdo desta função
+        console.log('Auto-preenchimento de ranking desabilitado - preencha manualmente');
     }
 
     showAutoFillSuccess(playerCount) {
@@ -3877,6 +4865,54 @@ class MagicGameSystem {
         }, 3000);
     }
 
+    setupChangePasswordForm() {
+        const form = document.getElementById('changePasswordForm');
+        const modal = document.getElementById('changePasswordModal');
+        
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                // Validar se as senhas coincidem
+                if (newPassword !== confirmPassword) {
+                    document.getElementById('changePasswordError').textContent = 'As senhas não coincidem';
+                    return;
+                }
+                
+                // Validar tamanho mínimo
+                if (newPassword.length < 6) {
+                    document.getElementById('changePasswordError').textContent = 'A nova senha deve ter pelo menos 6 caracteres';
+                    return;
+                }
+                
+                const result = await this.changePassword(currentPassword, newPassword);
+                
+                if (result.success) {
+                    this.showSuccessMessage('Senha alterada com sucesso!');
+                    modal.style.display = 'none';
+                    form.reset();
+                    document.getElementById('changePasswordError').textContent = '';
+                } else {
+                    document.getElementById('changePasswordError').textContent = result.error;
+                }
+            });
+        }
+        
+        // Fechar modal
+        modal?.querySelector('.close')?.addEventListener('click', () => {
+            modal.style.display = 'none';
+            form?.reset();
+            const errorElement = document.getElementById('changePasswordError');
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+        });
+    }
+
     // Função para demo de XP
     async demoRankingXP(xpChange) {
         if (!this.currentPlayerId) {
@@ -3885,11 +4921,16 @@ class MagicGameSystem {
         }
         
         try {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Token agora vem via cookie httpOnly
+            
             const response = await fetch(`${this.apiUrl}/demo/ranking-xp/${this.currentPlayerId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: headers,
+                credentials: 'include',
                 body: JSON.stringify({ xpChange })
             });
             
@@ -3918,6 +4959,768 @@ class MagicGameSystem {
             this.showErrorMessage('Erro ao conectar com o servidor');
         }
     }
+
+    // === MÉTODOS DE AUTENTICAÇÃO ===
+    
+    async checkAuthentication() {
+        try {
+            const response = await fetch(`${this.apiUrl}/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include' // Para enviar cookies
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.currentUser = data.user;
+                this.isAuthenticated = true;
+                this.currentPlayerId = this.currentUser.id;
+                this.hideLoginScreen();
+                this.setupAccessRestrictions();
+                
+                // Iniciar sistema de detecção de inatividade
+                this.setupInactivityDetection();
+                
+                return true;
+            } else {
+                this.logout();
+                return false;
+            }
+        } catch (error) {
+            console.error('Erro na verificação de autenticação:', error);
+            this.logout();
+            return false;
+        }
+    }
+
+    async login(email, password) {
+        try {
+            const response = await fetch(`${this.apiUrl}/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include', // Para enviar/receber cookies
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.authToken = 'cookie'; // Token agora vem via cookie
+                this.currentUser = data.user;
+                this.isAuthenticated = true;
+                
+                // Remover localStorage do token, manter apenas currentPlayerId
+                localStorage.setItem('currentPlayerId', this.currentUser.id);
+                this.currentPlayerId = this.currentUser.id;
+                
+                this.hideLoginScreen();
+                this.setupAccessRestrictions();
+                
+                // ADICIONAR: Inicializar sistema completo após login
+                await this.init();
+                
+                // Iniciar sistema de detecção de inatividade
+                this.setupInactivityDetection();
+                
+                return { success: true };
+            } else {
+                return { success: false, error: data.error };
+            }
+        } catch (error) {
+            console.error('Erro no login:', error);
+            return { success: false, error: 'Erro ao conectar com o servidor' };
+        }
+    }
+
+    async logout() {
+        try {
+            // Chamar endpoint de logout para limpar cookie
+            await fetch(`${this.apiUrl}/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            console.error('Erro no logout:', error);
+        }
+        
+        // Parar sistema de detecção de inatividade
+        this.stopInactivityDetection();
+        
+        this.authToken = null;
+        this.currentUser = null;
+        this.isAuthenticated = false;
+        this.currentPlayerId = null;
+        
+        // Remover apenas currentPlayerId do localStorage
+        localStorage.removeItem('currentPlayerId');
+        
+        this.showLoginScreen();
+    }
+
+    async changePassword(currentPassword, newPassword) {
+        try {
+            const response = await fetch(`${this.apiUrl}/auth/change-password`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ currentPassword, newPassword })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                return { success: true, message: data.message };
+            } else {
+                return { success: false, error: data.error };
+            }
+        } catch (error) {
+            console.error('Erro ao alterar senha:', error);
+            return { success: false, error: 'Erro ao conectar com o servidor' };
+        }
+    }
+
+    showLoginScreen() {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('mainContent').style.display = 'none';
+    }
+
+    hideLoginScreen() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    }
+
+    setupAccessRestrictions() {
+        if (!this.currentUser) return;
+
+        // Elementos administrativos que só devem aparecer para master
+        const playerSelectorContainer = document.querySelector('.player-selector-container');
+        const addPlayerBtn = document.getElementById('addPlayerBtn');
+        const demoControls = document.querySelector('.demo-controls');
+        const matchRegistration = document.querySelector('.match-registration');
+        const demoButtons = document.querySelector('.demo-buttons');
+
+        if (this.currentUser.isMaster) {
+            // Mostrar elementos administrativos para usuários master
+            if (playerSelectorContainer) playerSelectorContainer.style.display = 'block';
+            if (addPlayerBtn) addPlayerBtn.style.display = 'inline-block';
+            if (demoControls) demoControls.style.display = 'block';
+            if (matchRegistration) matchRegistration.style.display = 'block';
+            if (demoButtons) demoButtons.style.display = 'block';
+        } else {
+            // Ocultar elementos administrativos para usuários não-master
+            if (playerSelectorContainer) playerSelectorContainer.style.display = 'none';
+            if (addPlayerBtn) addPlayerBtn.style.display = 'none';
+            if (demoControls) demoControls.style.display = 'none';
+            if (matchRegistration) matchRegistration.style.display = 'none';
+            if (demoButtons) demoButtons.style.display = 'none';
+        }
+    }
+
+    setupLoginForm() {
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const result = await this.login(email, password);
+                
+                if (!result.success) {
+                    loginError.textContent = result.error;
+                    loginError.style.display = 'block';
+                } else {
+                    loginError.style.display = 'none';
+                }
+            });
+        }
+
+        // Configurar botão de logout
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                this.logout();
+            });
+        }
+    }
+
+    // === SISTEMA DE TIMEOUT DE INATIVIDADE ===
+    
+    startInactivityTimer() {
+        if (!this.isAuthenticated) return;
+        
+        // Limpar timer existente
+        this.clearInactivityTimer();
+        
+        // Iniciar novo timer
+        this.inactivityTimer = setTimeout(() => {
+            this.handleInactivityTimeout();
+        }, this.inactivityTimeout);
+    }
+    
+    clearInactivityTimer() {
+        if (this.inactivityTimer) {
+            clearTimeout(this.inactivityTimer);
+            this.inactivityTimer = null;
+        }
+    }
+    
+    resetInactivityTimer() {
+        this.lastActivity = Date.now();
+        this.startInactivityTimer();
+    }
+    
+    handleInactivityTimeout() {
+        console.log('Usuário inativo por muito tempo. Fazendo logout automático...');
+        alert('Sua sessão expirou devido à inatividade. Você será deslogado automaticamente.');
+        this.logout();
+    }
+    
+    setupInactivityDetection() {
+         if (!this.isAuthenticated) return;
+         
+         const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+         
+         const resetTimer = () => {
+             this.resetInactivityTimer();
+         };
+         
+         // Adicionar listeners para detectar atividade
+         events.forEach(event => {
+             document.addEventListener(event, resetTimer, true);
+         });
+         
+         // Iniciar o timer de inatividade
+         this.startInactivityTimer();
+         
+         // Iniciar verificação periódica de sessão
+         this.startSessionCheck();
+     }
+    
+    stopInactivityDetection() {
+         this.clearInactivityTimer();
+         this.stopSessionCheck();
+         
+         const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+         
+         const resetTimer = () => {
+             this.resetInactivityTimer();
+         };
+         
+         // Remover listeners
+         events.forEach(event => {
+             document.removeEventListener(event, resetTimer, true);
+         });
+     }
+     
+     // === SISTEMA DE VERIFICAÇÃO DE SESSÃO ===
+     
+     startSessionCheck() {
+         if (!this.isAuthenticated) return;
+         
+         // Verificar sessão a cada 2 minutos
+         this.sessionCheckInterval = setInterval(() => {
+             this.checkSessionStatus();
+         }, 2 * 60 * 1000);
+     }
+     
+     stopSessionCheck() {
+         if (this.sessionCheckInterval) {
+             clearInterval(this.sessionCheckInterval);
+             this.sessionCheckInterval = null;
+         }
+         this.sessionWarningShown = false;
+     }
+     
+     async checkSessionStatus() {
+         try {
+             const response = await fetch(`${this.apiUrl}/auth/verify`, {
+                 method: 'GET',
+                 headers: {
+                     'Content-Type': 'application/json'
+                 },
+                 credentials: 'include'
+             });
+             
+             if (response.ok) {
+                 const data = await response.json();
+                 
+                 if (data.tokenInfo && data.tokenInfo.isExpiringSoon && !this.sessionWarningShown) {
+                     this.showSessionExpiryWarning(data.tokenInfo.timeUntilExpiry);
+                 }
+             } else {
+                 const errorData = await response.json();
+                 if (errorData.expired) {
+                     console.log('Sessão expirada detectada pelo servidor');
+                     alert('Sua sessão expirou. Você será redirecionado para a tela de login.');
+                     this.logout();
+                 }
+             }
+         } catch (error) {
+             console.error('Erro ao verificar status da sessão:', error);
+         }
+     }
+     
+     showSessionExpiryWarning(timeUntilExpiry) {
+         this.sessionWarningShown = true;
+         const minutes = Math.floor(timeUntilExpiry / 60);
+         const seconds = timeUntilExpiry % 60;
+         
+         const timeString = minutes > 0 ? `${minutes} minuto(s)` : `${seconds} segundo(s)`;
+         
+         const shouldExtend = confirm(
+             `Sua sessão expirará em ${timeString}. \n\n` +
+             'Deseja estender sua sessão? Clique em "OK" para continuar logado ou "Cancelar" para fazer logout.'
+         );
+         
+         if (shouldExtend) {
+             // Reset do timer de inatividade para estender a sessão
+             this.resetInactivityTimer();
+             this.sessionWarningShown = false;
+         } else {
+             this.logout();
+         }
+     }
+
+     async updateGeneralTab() {
+         try {
+             const response = await fetch(`/api/commander-mastery-stats/${this.currentPlayerId}`);
+             if (!response.ok) {
+                 throw new Error('Falha ao carregar estatísticas de maestria de comandantes');
+             }
+             
+             const commanderMastery = await response.json();
+             
+             // Armazenar dados para paginação
+             this.allCommanderMastery = commanderMastery || [];
+             this.currentMasteryPage = 1;
+             this.masteryItemsPerPage = 10;
+             
+             this.renderCommanderMasteryPage();
+         } catch (error) {
+             console.error('Erro ao carregar estatísticas de maestria de comandantes:', error);
+             const container = document.getElementById('commanderMasteryGrid');
+             if (container) {
+                 container.innerHTML = '<div class="error-message">Erro ao carregar estatísticas</div>';
+             }
+         }
+     }
+
+     async renderCommanderMasteryPage() {
+         const container = document.getElementById('commanderMasteryGrid');
+         if (!container) return;
+         
+         if (!this.allCommanderMastery || this.allCommanderMastery.length === 0) {
+             container.innerHTML = '<div class="empty-commanders">Nenhum comandante jogado ainda</div>';
+             this.updateMasteryPaginationControls();
+             return;
+         }
+         
+         // Calcular índices da página atual
+         const startIndex = (this.currentMasteryPage - 1) * this.masteryItemsPerPage;
+         const endIndex = startIndex + this.masteryItemsPerPage;
+         const pageCommanders = this.allCommanderMastery.slice(startIndex, endIndex);
+         
+         container.innerHTML = '';
+         
+         for (const mastery of pageCommanders) {
+             const masteryCard = document.createElement('div');
+             masteryCard.className = 'commander-mastery-card';
+             
+             const imageUrl = await this.getCardImageUrl(mastery.name);
+             
+             // Determinar classe do winrate baseado na porcentagem
+             const winrateValue = parseFloat(mastery.winrate);
+             let winrateClass = 'winrate-low';
+             if (winrateValue >= 70) winrateClass = 'winrate-high';
+             else if (winrateValue >= 50) winrateClass = 'winrate-medium';
+             
+             masteryCard.innerHTML = `
+                 <div class="commander-mastery-image">
+                     <img src="${imageUrl}" alt="${mastery.name}" loading="lazy">
+                 </div>
+                 <div class="commander-mastery-info">
+                     <h4>${mastery.name}</h4>
+                     <div class="mastery-stats">
+                         <div class="stat-item">
+                             <span class="stat-label">Winrate:</span>
+                             <span class="stat-value ${winrateClass}">${mastery.winrate}%</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Partidas:</span>
+                             <span class="stat-value">${mastery.totalMatches}</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Vitórias:</span>
+                             <span class="stat-value">${mastery.wins}</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Removido:</span>
+                             <span class="stat-value">${mastery.totalRemovals}x</span>
+                         </div>
+                         <div class="stat-item">
+                             <span class="stat-label">Carta do Jogo:</span>
+                             <span class="stat-value">${mastery.gameCardCount}x</span>
+                         </div>
+                     </div>
+                 </div>
+             `;
+             
+             // Adicionar event listener para abrir o modal
+             masteryCard.addEventListener('click', () => {
+                 this.openCommanderMasteryModal(mastery, imageUrl);
+             });
+             
+             // Adicionar cursor pointer para indicar que é clicável
+             masteryCard.style.cursor = 'pointer';
+             
+             container.appendChild(masteryCard);
+         }
+         
+         this.updateMasteryPaginationControls();
+     }
+
+     updateMasteryPaginationControls() {
+         const totalPages = Math.ceil(this.allCommanderMastery.length / this.masteryItemsPerPage);
+         const paginationContainer = document.getElementById('masteryPaginationControls');
+         
+         if (!paginationContainer) {
+             // Criar container de paginação se não existir
+             const masterySection = document.querySelector('.commander-mastery-section');
+             if (masterySection) {
+                 const paginationDiv = document.createElement('div');
+                 paginationDiv.id = 'masteryPaginationControls';
+                 paginationDiv.className = 'mastery-pagination-controls';
+                 masterySection.appendChild(paginationDiv);
+             }
+         }
+         
+         const controls = document.getElementById('masteryPaginationControls');
+         if (!controls) return;
+         
+         if (totalPages <= 1) {
+             controls.innerHTML = '';
+             return;
+         }
+         
+         let paginationHTML = '<div class="pagination-info">';
+         paginationHTML += `<span>Página ${this.currentMasteryPage} de ${totalPages}</span>`;
+         paginationHTML += `<span class="total-items">(${this.allCommanderMastery.length} comandantes)</span>`;
+         paginationHTML += '</div>';
+         
+         paginationHTML += '<div class="pagination-buttons">';
+         
+         // Botão Anterior
+         if (this.currentMasteryPage > 1) {
+             paginationHTML += `<button class="pagination-btn" onclick="gameSystem.changeMasteryPage(${this.currentMasteryPage - 1})">‹ Anterior</button>`;
+         }
+         
+         // Números das páginas
+         const startPage = Math.max(1, this.currentMasteryPage - 2);
+         const endPage = Math.min(totalPages, this.currentMasteryPage + 2);
+         
+         for (let i = startPage; i <= endPage; i++) {
+             const activeClass = i === this.currentMasteryPage ? 'active' : '';
+             paginationHTML += `<button class="pagination-btn page-number ${activeClass}" onclick="gameSystem.changeMasteryPage(${i})">${i}</button>`;
+         }
+         
+         // Botão Próximo
+         if (this.currentMasteryPage < totalPages) {
+             paginationHTML += `<button class="pagination-btn" onclick="gameSystem.changeMasteryPage(${this.currentMasteryPage + 1})">Próximo ›</button>`;
+         }
+         
+         paginationHTML += '</div>';
+         
+         controls.innerHTML = paginationHTML;
+     }
+
+     async changeMasteryPage(page) {
+         this.currentMasteryPage = page;
+         await this.renderCommanderMasteryPage();
+     }
+
+     // Função para abrir o modal de maestria do comandante
+     openCommanderMasteryModal(mastery, imageUrl) {
+         const modal = document.getElementById('commanderMasteryModal');
+         if (!modal) return;
+
+         // Preencher informações do comandante
+         const commanderImage = modal.querySelector('#masteryCommanderImage');
+         const commanderName = modal.querySelector('#masteryCommanderName');
+         const commanderType = modal.querySelector('.commander-title-info p');
+
+         if (commanderImage) commanderImage.src = imageUrl;
+         if (commanderName) commanderName.textContent = mastery.name;
+         if (commanderType) commanderType.textContent = 'Comandante Lendário';
+
+         // Preencher estatísticas
+         this.populateMasteryStats(modal, mastery);
+
+         // Calcular e exibir níveis
+         this.populateMasteryLevels(modal, mastery);
+         
+         // Atualizar tiers e barra de progresso
+         this.updateMasteryTiers(modal, mastery);
+
+         // Mostrar modal
+         modal.style.display = 'block';
+
+         // Configurar botão de fechar
+         const closeBtn = modal.querySelector('.mastery-close');
+         if (closeBtn) {
+             closeBtn.onclick = () => {
+                 modal.style.display = 'none';
+             };
+         }
+
+         // Fechar ao clicar fora do modal
+         modal.onclick = (e) => {
+             if (e.target === modal) {
+                 modal.style.display = 'none';
+             }
+         };
+     }
+
+     // Função para preencher as estatísticas do modal
+     populateMasteryStats(modal, mastery) {
+         // Atualizar elementos específicos usando IDs
+         const winrateElement = modal.querySelector('#masteryWinrate');
+         const matchesElement = modal.querySelector('#masteryMatches');
+         const winsElement = modal.querySelector('#masteryWins');
+         const removalsElement = modal.querySelector('#masteryRemovals');
+         const gameCardElement = modal.querySelector('#masteryGameCard');
+
+         if (winrateElement) winrateElement.textContent = `${mastery.winrate}%`;
+         if (matchesElement) matchesElement.textContent = mastery.totalMatches;
+         if (winsElement) winsElement.textContent = mastery.wins || Math.round(mastery.totalMatches * parseFloat(mastery.winrate) / 100);
+         if (removalsElement) removalsElement.textContent = `${mastery.totalRemovals || 0}x`;
+         if (gameCardElement) gameCardElement.textContent = `${mastery.gameCardCount || 0}x`;
+     }
+
+     // Função para calcular e exibir os níveis de maestria
+     populateMasteryLevels(modal, mastery) {
+        // Definir requisitos e recompensas para cada nível
+        const levelRequirements = {
+            1: { matches: 5, winrate: 0 },
+            2: { matches: 10, winrate: 0 },
+            3: { matches: 20, winrate: 50 },
+            4: { matches: 35, winrate: 55 },
+            5: { matches: 50, winrate: 60 },
+            6: { matches: 75, winrate: 65 },
+            7: { matches: 100, winrate: 70 },
+            8: { matches: 150, winrate: 75 },
+            9: { matches: 200, winrate: 80 },
+            10: { matches: 300, winrate: 85 }
+        };
+        
+        const rewardTriggers = {
+            1: 'Título: Iniciante',
+            2: 'Frame Bronze',
+            3: 'Título: Aprendiz',
+            4: 'Avatar Especial',
+            5: 'Título: Competente',
+            6: 'Frame Prata',
+            7: 'Título: Experiente',
+            8: 'Frame Ouro',
+            9: 'Título: Mestre',
+            10: 'Frame Lendário + Título: Lenda'
+        };
+        
+        const currentLevel = this.calculateCommanderLevel(mastery);
+        const levelProgress = this.calculateLevelProgress(mastery, currentLevel);
+         
+         // Atualizar informações do nível atual
+         const currentLevelDisplay = modal.querySelector('#currentLevelDisplay');
+         const currentLevelPoints = modal.querySelector('#currentLevelPoints');
+         const nextLevelPoints = modal.querySelector('#nextLevelPoints');
+         const levelProgressFill = modal.querySelector('#levelProgressFill');
+         const commanderCurrentLevel = modal.querySelector('#commanderCurrentLevel');
+         
+         if (currentLevelDisplay) currentLevelDisplay.textContent = currentLevel;
+         if (commanderCurrentLevel) commanderCurrentLevel.textContent = currentLevel;
+         if (currentLevelPoints) currentLevelPoints.textContent = levelProgress.current;
+         if (nextLevelPoints) nextLevelPoints.textContent = levelProgress.required;
+         if (levelProgressFill) {
+             const progressPercent = (levelProgress.current / levelProgress.required) * 100;
+             levelProgressFill.style.width = `${Math.min(progressPercent, 100)}%`;
+         }
+         
+         // Atualizar os círculos de nível
+         const levelItems = modal.querySelectorAll('.level-item');
+         levelItems.forEach((item, index) => {
+             const level = index + 1;
+             const levelCircle = item.querySelector('.level-circle');
+             
+             if (level <= currentLevel) {
+                 item.classList.add('unlocked');
+                 if (level === currentLevel) {
+                     item.classList.add('current');
+                 }
+             } else {
+                 item.classList.add('level-locked');
+             }
+         });
+     }
+
+     // Calcula e exibe tier atual e progresso até o próximo
+     updateMasteryTiers(modal, m) {
+         const tiers = [
+             { id: 'spark', label: 'Spark', req: { matches: 1 } },
+             { id: 'ember', label: 'Ember', req: { wins: 25, gameCards: 1 } },
+             { id: 'lord',  label: 'Lord',  req: { wins: 50, gameCards: 5 } },
+             { id: 'titan', label: 'Titan', req: { wins: 75, wr: 50, gameCards: 10 } },
+         ];
+
+         // Normaliza stats vindos do backend
+         const stats = {
+             matches: Number(m.totalMatches || 0),
+             wins:    Number(m.wins ?? Math.round((Number(m.totalMatches || 0) * parseFloat(m.winrate || 0)) / 100)),
+             wr:      Number(parseFloat(m.winrate || 0)),
+             gameCards: Number(m.gameCardCount || 0),
+         };
+
+         const meets = (req) => {
+             if (req.matches && stats.matches < req.matches) return false;
+             if (req.wins    && stats.wins    < req.wins)    return false;
+             if (req.wr      && stats.wr      < req.wr)      return false;
+             if (req.gameCards && stats.gameCards < req.gameCards) return false;
+             return true;
+         };
+
+         // Tier atual = maior tier já atendido
+         let currentIdx = 0;
+         for (let i = tiers.length - 1; i >= 0; i--) {
+             if (meets(tiers[i].req)) { currentIdx = i; break; }
+         }
+         const current = tiers[currentIdx];
+         const next = tiers[currentIdx + 1] || null;
+
+         // Texto do tier atual
+         const tierNameEl = modal.querySelector('#currentTierDisplay');
+         if (tierNameEl) tierNameEl.textContent = current.label;
+
+         // Progresso até o próximo tier (média dos requisitos → permite progresso parcial)
+         let pct = 100;
+         if (next) {
+             const r = next.req, parts = [];
+             if (r.matches)   parts.push(Math.min(stats.matches / r.matches, 1));
+             if (r.wins)      parts.push(Math.min(stats.wins    / r.wins,    1));
+             if (r.wr)        parts.push(Math.min(stats.wr      / r.wr,      1));
+             if (r.gameCards) parts.push(Math.min(stats.gameCards / r.gameCards, 1));
+             pct = Math.floor((parts.reduce((a,b)=>a+b,0) / parts.length) * 100);
+         }
+
+         const pctEl = modal.querySelector('#currentTierProgress');
+         if (pctEl) pctEl.textContent = pct;
+
+         // Barra contínua (Spark→Ember→Lord→Titan)
+         const fill = modal.querySelector('#tierProgressFill');
+         if (fill) {
+             const segments = tiers.length - 1; // 3
+             const segW = 100 / segments;
+             const base = currentIdx * segW;
+             const width = next ? Math.min(100, base + segW * (pct / 100)) : 100;
+             fill.style.width = width + '%';
+         }
+
+         // Trava/destrava marcadores e destaca o atual
+         modal.querySelectorAll('.tier-marker').forEach(marker => {
+             const id = marker.getAttribute('data-tier');
+             const idx = tiers.findIndex(t => t.id === id);
+             marker.classList.toggle('locked', idx > currentIdx);
+             marker.classList.toggle('current', idx === currentIdx);
+         });
+     }
+
+     // Função para calcular o nível atual do comandante
+     calculateCommanderLevel(mastery) {
+         const matches = mastery.totalMatches;
+         const winrate = parseFloat(mastery.winrate);
+         const gameCards = mastery.gameCardCount;
+
+         // Sistema de níveis baseado em múltiplos critérios
+         let level = 1;
+
+         // Nível baseado em partidas jogadas
+         if (matches >= 50) level = Math.max(level, 10);
+         else if (matches >= 40) level = Math.max(level, 9);
+         else if (matches >= 30) level = Math.max(level, 8);
+         else if (matches >= 25) level = Math.max(level, 7);
+         else if (matches >= 20) level = Math.max(level, 6);
+         else if (matches >= 15) level = Math.max(level, 5);
+         else if (matches >= 10) level = Math.max(level, 4);
+         else if (matches >= 7) level = Math.max(level, 3);
+         else if (matches >= 5) level = Math.max(level, 2);
+
+         // Bônus por performance
+         if (winrate >= 80 && matches >= 10) level = Math.min(10, level + 2);
+         else if (winrate >= 70 && matches >= 5) level = Math.min(10, level + 1);
+
+         // Bônus por cartas do jogo
+         if (gameCards >= 5) level = Math.min(10, level + 1);
+
+         return Math.max(1, Math.min(10, level));
+     }
+
+     // Função para calcular o progresso dentro do nível atual
+     calculateLevelProgress(mastery, level) {
+         const currentLevel = this.calculateCommanderLevel(mastery);
+         
+         if (level < currentLevel) return 100;
+         if (level > currentLevel + 1) return 0;
+         if (level === currentLevel) return 100;
+
+         // Calcular progresso para o próximo nível
+         const requirements = this.getLevelRequirements()[level];
+         if (!requirements) return 0;
+
+         const matchProgress = Math.min(100, (mastery.totalMatches / requirements.matches) * 100);
+         const winrateProgress = requirements.winrate > 0 ? 
+             Math.min(100, (parseFloat(mastery.winrate) / requirements.winrate) * 100) : 100;
+
+         return Math.min(100, Math.min(matchProgress, winrateProgress));
+     }
+
+     // Função para obter os requisitos de cada nível
+     getLevelRequirements() {
+         return {
+             1: { matches: 1, winrate: 0 },
+             2: { matches: 5, winrate: 0 },
+             3: { matches: 7, winrate: 0 },
+             4: { matches: 10, winrate: 0 },
+             5: { matches: 15, winrate: 0 },
+             6: { matches: 20, winrate: 50 },
+             7: { matches: 25, winrate: 55 },
+             8: { matches: 30, winrate: 60 },
+             9: { matches: 40, winrate: 65 },
+             10: { matches: 50, winrate: 70 }
+         };
+     }
+
+     // Função para obter os triggers de recompensas
+     getRewardTriggers() {
+         return {
+             1: '🎯 Título: "Iniciante"',
+             2: '🖼️ Frame: Bronze',
+             3: '🎭 Avatar: Aprendiz',
+             4: '🏆 Título: "Dedicado"',
+             5: '🖼️ Frame: Prata',
+             6: '🎭 Avatar: Veterano',
+             7: '🏆 Título: "Especialista"',
+             8: '🖼️ Frame: Ouro',
+             9: '🎭 Avatar: Mestre',
+             10: '👑 Título: "Lenda" + Frame Especial'
+         };
+     }
 }
 
 // Adicionar estilos para animações
@@ -3936,6 +5739,13 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Inicializar sistema quando a página carregar
-document.addEventListener('DOMContentLoaded', () => {
-    new MagicGameSystem();
+document.addEventListener('DOMContentLoaded', async () => {
+    const system = new MagicGameSystem();
+    system.setupLoginForm();
+    
+    // Verificar autenticação antes de inicializar o sistema principal
+    const isAuthenticated = await system.checkAuthentication();
+    if (isAuthenticated) {
+        await system.init();
+    }
 });
