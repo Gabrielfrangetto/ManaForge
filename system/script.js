@@ -744,35 +744,20 @@ class MagicGameSystem {
     async loadMatchHistory() {
         try {
             if (this.currentPlayerId) {
-                const limit = 50;
-                const firstResponse = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}?limit=${limit}&page=1`);
-                if (firstResponse.ok) {
-                    const firstData = await firstResponse.json();
-                    if (Array.isArray(firstData)) {
-                        this.matchHistory = firstData;
-                        return;
-                    }
-                    if (Array.isArray(firstData.matches)) {
-                        let allMatches = firstData.matches.slice();
-                        const totalPages = parseInt(firstData.totalPages) || 1;
-                        for (let p = 2; p <= totalPages; p++) {
-                            const resp = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}?limit=${limit}&page=${p}`);
-                            if (!resp.ok) break;
-                            const data = await resp.json();
-                            if (Array.isArray(data.matches)) {
-                                allMatches = allMatches.concat(data.matches);
-                            } else {
-                                break;
-                            }
-                        }
-                        this.matchHistory = allMatches;
-                        return;
-                    }
+                // Corrigir a URL - remover '/player' da rota
+                const response = await fetch(`${this.apiUrl}/matches/${this.currentPlayerId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // Garantir que sempre temos um array válido
+                    this.matchHistory = Array.isArray(data) ? data : (Array.isArray(data.matches) ? data.matches : []);
+                    return;
                 }
             }
         } catch (error) {
             console.warn('Aviso: Não foi possível carregar o histórico de partidas:', error);
         }
+        
+        // Fallback para array vazio em vez de dados locais problemáticos
         this.matchHistory = [];
     }
 
