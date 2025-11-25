@@ -4155,6 +4155,7 @@ class MagicGameSystem {
                     <option value="Mill">Mill</option>
                     <option value="Self-Mill">Self-Mill</option>
                     <option value="Control // Stax">Control // Stax</option>
+                    <option value="Stax">Stax</option>
                     <option value="Theft">Theft</option>
                     <option value="Tokens // +1/+1 Counters">Tokens // +1/+1 Counters</option>
                     <option value="Voltron">Voltron</option>
