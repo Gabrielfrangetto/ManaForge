@@ -4153,6 +4153,7 @@ class MagicGameSystem {
                     <option value="Legends // Aristocrats">Legends // Aristocrats</option>
                     <option value="Lifegain">Lifegain</option>
                     <option value="Mill">Mill</option>
+                    <option value="Reanimator">Reanimator</option>
                     <option value="Self-Mill">Self-Mill</option>
                     <option value="Control // Stax">Control // Stax</option>
                     <option value="Stax">Stax</option>
