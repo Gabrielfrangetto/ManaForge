@@ -285,7 +285,6 @@ const playerSchema = new mongoose.Schema({
     fastestWin: { type: Number, default: 999 },
     longestMatch: { type: Number, default: 0 },
     favoriteDecks: { type: mongoose.Schema.Types.Mixed, default: {} },
-    commanderStats: { type: mongoose.Schema.Types.Mixed, default: {} },
     cardOwnerCount: { type: Number, default: 0 }, // ADICIONAR ESTA LINHA
     // Adicionar estatísticas de firstPlayer
     firstPlayerStats: {
@@ -302,7 +301,8 @@ const matchSchema = new mongoose.Schema({
     commanders: [{
         name: { type: String, required: true },
         partnerName: { type: String, default: null },
-        theme: { type: String, required: true },
+        themePrimary: { type: String, required: true },
+        themeSecondary: { type: String, default: '' },
         playerId: { type: String, required: true },
         playerName: { type: String, required: true }
     }],
@@ -554,7 +554,11 @@ app.get('/api/matches/:playerId', async (req, res) => {
             filter['commanders'] = {
                 $elemMatch: {
                     playerId: req.params.playerId,
-                    theme: deckTheme
+                    $or: [
+                        { themePrimary: deckTheme },
+                        { themeSecondary: deckTheme },
+                        { theme: deckTheme }
+                    ]
                 }
             };
         }
@@ -662,7 +666,33 @@ app.get('/api/stats/:playerId', async (req, res) => {
             },
             {
                 $addFields: {
-                    deckTheme: { $arrayElemAt: ['$playerCommander.theme', 0] },
+                    deckTheme: { 
+                        $let: {
+                            vars: {
+                                primary: { $arrayElemAt: ['$playerCommander.themePrimary', 0] },
+                                secondary: { $arrayElemAt: ['$playerCommander.themeSecondary', 0] },
+                                legacy: { $arrayElemAt: ['$playerCommander.theme', 0] }
+                            },
+                            in: {
+                                $cond: {
+                                    if: { $ne: [{ $ifNull: ['$$primary', ''] }, ''] },
+                                    then: {
+                                        $concat: [
+                                            '$$primary',
+                                            {
+                                                $cond: {
+                                                    if: { $ne: [{ $ifNull: ['$$secondary', ''] }, ''] },
+                                                    then: { $concat: [' / ', '$$secondary'] },
+                                                    else: ''
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    else: '$$legacy'
+                                }
+                            }
+                        }
+                    },
                     isWin: {
                         $cond: [
                             { $eq: ['$winner', new mongoose.Types.ObjectId(req.params.playerId)] },
@@ -1181,9 +1211,6 @@ app.post('/api/matches/multiplayer', async (req, res) => {
                         commanderStats[commander.name].wins += 1;
                     }
                     
-                    // Persistir estatísticas do comandante no jogador principal
-                    updateData.commanderStats = commanderStats;
-                    
                     // Atualizar estatísticas do partner (se existir)
                     if (commander.partnerPlayerId) {
                         const partnerPlayer = await Player.findById(commander.partnerPlayerId);
@@ -1208,13 +1235,23 @@ app.post('/api/matches/multiplayer', async (req, res) => {
                     
                      // ADICIONAR: Atualizar deck favorito (replicando comportamento do jogador principal)
                     const favoriteDecks = player.favoriteDecks || {};
-                    if (!favoriteDecks[commander.theme]) {
-                        favoriteDecks[commander.theme] = { wins: 0, total: 0 };
+                    
+                    const updateThemeStats = (theme) => {
+                        if (!theme) return;
+                        if (!favoriteDecks[theme]) {
+                            favoriteDecks[theme] = { wins: 0, total: 0 };
+                        }
+                        favoriteDecks[theme].total += 1;
+                        if (isWinner) {
+                            favoriteDecks[theme].wins += 1;
+                        }
+                    };
+
+                    updateThemeStats(commander.themePrimary);
+                    if (commander.themeSecondary) {
+                        updateThemeStats(commander.themeSecondary);
                     }
-                    favoriteDecks[commander.theme].total += 1;
-                    if (isWinner) {
-                        favoriteDecks[commander.theme].wins += 1;
-                    }
+                    
                     updateData.favoriteDecks = favoriteDecks;
                     
                     await Player.findByIdAndUpdate(new mongoose.Types.ObjectId(commander.playerId), updateData);
@@ -1279,7 +1316,11 @@ app.get('/api/matches/:playerId', async (req, res) => {
             filter['commanders'] = {
                 $elemMatch: {
                     playerId: req.params.playerId,
-                    theme: deckTheme
+                    $or: [
+                        { themePrimary: deckTheme },
+                        { themeSecondary: deckTheme },
+                        { theme: deckTheme }
+                    ]
                 }
             };
         }
@@ -1382,7 +1423,33 @@ app.get('/api/stats/:playerId', async (req, res) => {
             },
             {
                 $addFields: {
-                    deckTheme: { $arrayElemAt: ['$playerCommander.theme', 0] },
+                    deckTheme: { 
+                        $let: {
+                            vars: {
+                                primary: { $arrayElemAt: ['$playerCommander.themePrimary', 0] },
+                                secondary: { $arrayElemAt: ['$playerCommander.themeSecondary', 0] },
+                                legacy: { $arrayElemAt: ['$playerCommander.theme', 0] }
+                            },
+                            in: {
+                                $cond: {
+                                    if: { $ne: [{ $ifNull: ['$$primary', ''] }, ''] },
+                                    then: {
+                                        $concat: [
+                                            '$$primary',
+                                            {
+                                                $cond: {
+                                                    if: { $ne: [{ $ifNull: ['$$secondary', ''] }, ''] },
+                                                    then: { $concat: [' / ', '$$secondary'] },
+                                                    else: ''
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    else: '$$legacy'
+                                }
+                            }
+                        }
+                    },
                     isWin: {
                         $cond: [
                             { $eq: ['$winner', new mongoose.Types.ObjectId(req.params.playerId)] },
@@ -1995,7 +2062,7 @@ app.get('/api/commander-removed-stats/:playerId', async (req, res) => {
                     commanderStats[commanderKey] = {
                         name: playerCommander.name,
                         partnerName: playerCommander.partnerName,
-                        theme: playerCommander.theme,
+                        theme: playerCommander.themePrimary || playerCommander.theme,
                         totalRemovals: 0,
                         matchesPlayed: 0
                     };

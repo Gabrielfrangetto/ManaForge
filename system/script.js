@@ -1749,7 +1749,7 @@ class MagicGameSystem {
         });
         
         // Limpar temas dos comandantes
-        document.querySelectorAll('.commander-theme').forEach(input => {
+        document.querySelectorAll('.commander-theme-primary, .commander-theme-secondary').forEach(input => {
             input.value = '';
         });
         
@@ -2270,7 +2270,8 @@ class MagicGameSystem {
                         commanderUsage[commanderKey] = {
                             name: playerCommander.name,
                             mainName: playerCommander.name,
-                            theme: playerCommander.theme,
+                            theme: playerCommander.themePrimary || playerCommander.theme,
+                            themeSecondary: playerCommander.themeSecondary,
                             total: 0,
                             wins: 0
                         };
@@ -2282,8 +2283,9 @@ class MagicGameSystem {
                         commanderUsage[commanderKey].wins++;
                     }
                     
-                    if (!commanderUsage[commanderKey].theme && playerCommander.theme) {
-                        commanderUsage[commanderKey].theme = playerCommander.theme;
+                    if (!commanderUsage[commanderKey].theme && (playerCommander.themePrimary || playerCommander.theme)) {
+                        commanderUsage[commanderKey].theme = playerCommander.themePrimary || playerCommander.theme;
+                        commanderUsage[commanderKey].themeSecondary = playerCommander.themeSecondary;
                     }
                 }
             }
@@ -2365,7 +2367,7 @@ class MagicGameSystem {
                     </div>
                     <div class="commander-info">
                         <div class="commander-name">${commander.name}</div>
-                        <div class="commander-theme">${commander.theme || 'Tema não informado'}</div>
+                        <div class="commander-theme">${commander.theme || 'Tema não informado'}${commander.themeSecondary ? ' / ' + commander.themeSecondary : ''}</div>
                         <div class="commander-stats">
                             <div class="winrate">${winrate}%</div>
                             <div class="usage">${commander.wins}/${commander.total} vitórias</div>
@@ -3075,7 +3077,7 @@ class MagicGameSystem {
                     <div class="commander-name">${commanderName}</div>
                     <div class="player-name">${commander.playerName}</div>
                 </div>
-                <div class="commander-theme">${commander.theme}</div>
+                <div class="commander-theme">${commander.themePrimary || commander.theme}${commander.themeSecondary ? ' / ' + commander.themeSecondary : ''}</div>
             `;
             
             commandersContainer.appendChild(commanderItem);
@@ -4134,8 +4136,36 @@ class MagicGameSystem {
             <div class="commander-input-group">
                 <input type="text" class="commander-input" placeholder="Digite o nome do comandante..." required>
                 <input type="text" class="commander-partner" placeholder="Comandante Partner (opcional)">
-                <select class="commander-theme" required>
-                    <option value="">Selecione o tema do deck...</option>
+                <select class="commander-theme-primary" required>
+                    <option value="">Tema Principal...</option>
+                    <option value="Big Mana">Big Mana</option>
+                    <option value="Clones // Theft">Clones // Theft</option>
+                    <option value="Combo">Combo</option>
+                    <option value="Control">Control</option>
+                    <option value="Discard">Discard</option>
+                    <option value="Exile">Exile</option>
+                    <option value="Fight">Fight</option>
+                    <option value="Group Slug">Group Slug</option>
+                    <option value="Kindred">Kindred</option>
+                    <option value="Kindred // Blink">Kindred // Blink</option>
+                    <option value="Kindred // Clones">Kindred // Clones</option>
+                    <option value="Kindred // Control">Kindred // Control</option>
+                    <option value="Kindred // Lifegain">Kindred // Lifegain</option>
+                    <option value="Lands Matter">Lands Matter</option>
+                    <option value="Legends // Aristocrats">Legends // Aristocrats</option>
+                    <option value="Lifegain">Lifegain</option>
+                    <option value="Mill">Mill</option>
+                    <option value="Reanimator">Reanimator</option>
+                    <option value="Self-Mill">Self-Mill</option>
+                    <option value="Control // Stax">Control // Stax</option>
+                    <option value="Stax">Stax</option>
+                    <option value="Theft">Theft</option>
+                    <option value="Tokens // +1/+1 Counters">Tokens // +1/+1 Counters</option>
+                    <option value="Voltron">Voltron</option>
+                    <option value="Wheels">Wheels</option>
+                </select>
+                <select class="commander-theme-secondary">
+                    <option value="">Tema Secundário (opcional)...</option>
                     <option value="Big Mana">Big Mana</option>
                     <option value="Clones // Theft">Clones // Theft</option>
                     <option value="Combo">Combo</option>
@@ -4473,14 +4503,16 @@ class MagicGameSystem {
         commanderEntries.forEach(entry => {
             const commanderInput = entry.querySelector('.commander-input');
             const partnerInput = entry.querySelector('.commander-partner');
-            const themeInput = entry.querySelector('.commander-theme');
+            const themePrimaryInput = entry.querySelector('.commander-theme-primary');
+            const themeSecondaryInput = entry.querySelector('.commander-theme-secondary');
             const playerSelect = entry.querySelector('.commander-player');
             
-            if (commanderInput && themeInput && playerSelect && 
-                commanderInput.value.trim() && themeInput.value.trim() && playerSelect.value) {
+            if (commanderInput && themePrimaryInput && playerSelect && 
+                commanderInput.value.trim() && themePrimaryInput.value.trim() && playerSelect.value) {
                 const commanderData = {
                     name: commanderInput.value.trim(),
-                    theme: themeInput.value.trim(),
+                    themePrimary: themePrimaryInput.value.trim(),
+                    themeSecondary: themeSecondaryInput ? themeSecondaryInput.value.trim() : '',
                     playerId: playerSelect.value,
                     playerName: playerSelect.options[playerSelect.selectedIndex].text
                 };
