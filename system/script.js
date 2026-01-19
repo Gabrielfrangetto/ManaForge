@@ -4202,6 +4202,62 @@ class MagicGameSystem {
                     <option value="Warriors" data-tag="Kindred">Warriors</option>
                     <option value="Wizards" data-tag="Kindred">Wizards</option>
                     <option value="Zombies" data-tag="Kindred">Zombies</option>
+                    <option value="+1/+1 Counters" data-tag="Themes">+1/+1 Counters</option>
+                    <option value="-1/-1 Counters" data-tag="Themes">-1/-1 Counters</option>
+                    <option value="Aggro" data-tag="Themes">Aggro</option>
+                    <option value="Aristocrats" data-tag="Themes">Aristocrats</option>
+                    <option value="Artifacts" data-tag="Themes">Artifacts</option>
+                    <option value="Auras" data-tag="Themes">Auras</option>
+                    <option value="Big Mana" data-tag="Themes">Big Mana</option>
+                    <option value="Birthing Pod" data-tag="Themes">Birthing Pod</option>
+                    <option value="Blink" data-tag="Themes">Blink</option>
+                    <option value="Burn" data-tag="Themes">Burn</option>
+                    <option value="Cantrips" data-tag="Themes">Cantrips</option>
+                    <option value="Card Draw" data-tag="Themes">Card Draw</option>
+                    <option value="Chaos" data-tag="Themes">Chaos</option>
+                    <option value="Clones" data-tag="Themes">Clones</option>
+                    <option value="Combo" data-tag="Themes">Combo</option>
+                    <option value="Control" data-tag="Themes">Control</option>
+                    <option value="Discard" data-tag="Themes">Discard</option>
+                    <option value="Enchantress" data-tag="Themes">Enchantress</option>
+                    <option value="Equipment" data-tag="Themes">Equipment</option>
+                    <option value="ETB" data-tag="Themes">ETB</option>
+                    <option value="Exile" data-tag="Themes">Exile</option>
+                    <option value="Extra Combats" data-tag="Themes">Extra Combats</option>
+                    <option value="Flying" data-tag="Themes">Flying</option>
+                    <option value="Forced Combat" data-tag="Themes">Forced Combat</option>
+                    <option value="Good Stuff" data-tag="Themes">Good Stuff</option>
+                    <option value="Graveyard" data-tag="Themes">Graveyard</option>
+                    <option value="Group Hug" data-tag="Themes">Group Hug</option>
+                    <option value="Group Slug" data-tag="Themes">Group Slug</option>
+                    <option value="Historic" data-tag="Themes">Historic</option>
+                    <option value="Infect" data-tag="Themes">Infect</option>
+                    <option value="Land Destruction" data-tag="Themes">Land Destruction</option>
+                    <option value="Landfall" data-tag="Themes">Landfall</option>
+                    <option value="Lands Matter" data-tag="Themes">Lands Matter</option>
+                    <option value="Legends" data-tag="Themes">Legends</option>
+                    <option value="Lifegain" data-tag="Themes">Lifegain</option>
+                    <option value="Midrange" data-tag="Themes">Midrange</option>
+                    <option value="Mill" data-tag="Themes">Mill</option>
+                    <option value="Morph" data-tag="Themes">Morph</option>
+                    <option value="Ninjutsu" data-tag="Themes">Ninjutsu</option>
+                    <option value="Planeswalkers" data-tag="Themes">Planeswalkers</option>
+                    <option value="Ramp" data-tag="Themes">Ramp</option>
+                    <option value="Reanimator" data-tag="Themes">Reanimator</option>
+                    <option value="Sacrifice" data-tag="Themes">Sacrifice</option>
+                    <option value="Self-Mill" data-tag="Themes">Self-Mill</option>
+                    <option value="Spellslinger" data-tag="Themes">Spellslinger</option>
+                    <option value="Stax" data-tag="Themes">Stax</option>
+                    <option value="Storm" data-tag="Themes">Storm</option>
+                    <option value="Theft" data-tag="Themes">Theft</option>
+                    <option value="Tokens" data-tag="Themes">Tokens</option>
+                    <option value="Topdeck" data-tag="Themes">Topdeck</option>
+                    <option value="Toughness Matters" data-tag="Themes">Toughness Matters</option>
+                    <option value="Treasure" data-tag="Themes">Treasure</option>
+                    <option value="Vehicles" data-tag="Themes">Vehicles</option>
+                    <option value="Voltron" data-tag="Themes">Voltron</option>
+                    <option value="Wheels" data-tag="Themes">Wheels</option>
+                    <option value="X Spells" data-tag="Themes">X Spells</option>
                 </select>
                 <select class="commander-theme-secondary">
                     <option value="">Tema Secundário (opcional)...</option>
@@ -4240,6 +4296,62 @@ class MagicGameSystem {
                     <option value="Warriors" data-tag="Kindred">Warriors</option>
                     <option value="Wizards" data-tag="Kindred">Wizards</option>
                     <option value="Zombies" data-tag="Kindred">Zombies</option>
+                    <option value="+1/+1 Counters" data-tag="Themes">+1/+1 Counters</option>
+                    <option value="-1/-1 Counters" data-tag="Themes">-1/-1 Counters</option>
+                    <option value="Aggro" data-tag="Themes">Aggro</option>
+                    <option value="Aristocrats" data-tag="Themes">Aristocrats</option>
+                    <option value="Artifacts" data-tag="Themes">Artifacts</option>
+                    <option value="Auras" data-tag="Themes">Auras</option>
+                    <option value="Big Mana" data-tag="Themes">Big Mana</option>
+                    <option value="Birthing Pod" data-tag="Themes">Birthing Pod</option>
+                    <option value="Blink" data-tag="Themes">Blink</option>
+                    <option value="Burn" data-tag="Themes">Burn</option>
+                    <option value="Cantrips" data-tag="Themes">Cantrips</option>
+                    <option value="Card Draw" data-tag="Themes">Card Draw</option>
+                    <option value="Chaos" data-tag="Themes">Chaos</option>
+                    <option value="Clones" data-tag="Themes">Clones</option>
+                    <option value="Combo" data-tag="Themes">Combo</option>
+                    <option value="Control" data-tag="Themes">Control</option>
+                    <option value="Discard" data-tag="Themes">Discard</option>
+                    <option value="Enchantress" data-tag="Themes">Enchantress</option>
+                    <option value="Equipment" data-tag="Themes">Equipment</option>
+                    <option value="ETB" data-tag="Themes">ETB</option>
+                    <option value="Exile" data-tag="Themes">Exile</option>
+                    <option value="Extra Combats" data-tag="Themes">Extra Combats</option>
+                    <option value="Flying" data-tag="Themes">Flying</option>
+                    <option value="Forced Combat" data-tag="Themes">Forced Combat</option>
+                    <option value="Good Stuff" data-tag="Themes">Good Stuff</option>
+                    <option value="Graveyard" data-tag="Themes">Graveyard</option>
+                    <option value="Group Hug" data-tag="Themes">Group Hug</option>
+                    <option value="Group Slug" data-tag="Themes">Group Slug</option>
+                    <option value="Historic" data-tag="Themes">Historic</option>
+                    <option value="Infect" data-tag="Themes">Infect</option>
+                    <option value="Land Destruction" data-tag="Themes">Land Destruction</option>
+                    <option value="Landfall" data-tag="Themes">Landfall</option>
+                    <option value="Lands Matter" data-tag="Themes">Lands Matter</option>
+                    <option value="Legends" data-tag="Themes">Legends</option>
+                    <option value="Lifegain" data-tag="Themes">Lifegain</option>
+                    <option value="Midrange" data-tag="Themes">Midrange</option>
+                    <option value="Mill" data-tag="Themes">Mill</option>
+                    <option value="Morph" data-tag="Themes">Morph</option>
+                    <option value="Ninjutsu" data-tag="Themes">Ninjutsu</option>
+                    <option value="Planeswalkers" data-tag="Themes">Planeswalkers</option>
+                    <option value="Ramp" data-tag="Themes">Ramp</option>
+                    <option value="Reanimator" data-tag="Themes">Reanimator</option>
+                    <option value="Sacrifice" data-tag="Themes">Sacrifice</option>
+                    <option value="Self-Mill" data-tag="Themes">Self-Mill</option>
+                    <option value="Spellslinger" data-tag="Themes">Spellslinger</option>
+                    <option value="Stax" data-tag="Themes">Stax</option>
+                    <option value="Storm" data-tag="Themes">Storm</option>
+                    <option value="Theft" data-tag="Themes">Theft</option>
+                    <option value="Tokens" data-tag="Themes">Tokens</option>
+                    <option value="Topdeck" data-tag="Themes">Topdeck</option>
+                    <option value="Toughness Matters" data-tag="Themes">Toughness Matters</option>
+                    <option value="Treasure" data-tag="Themes">Treasure</option>
+                    <option value="Vehicles" data-tag="Themes">Vehicles</option>
+                    <option value="Voltron" data-tag="Themes">Voltron</option>
+                    <option value="Wheels" data-tag="Themes">Wheels</option>
+                    <option value="X Spells" data-tag="Themes">X Spells</option>
                 </select>
                 <select class="commander-player" required>
                     <option value="">Selecione o jogador...</option>

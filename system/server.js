@@ -1203,13 +1203,37 @@ app.post('/api/matches/multiplayer', async (req, res) => {
                     // Atualizar estatísticas do comandante
                     const commanderStats = player.commanderStats || {};
                     if (!commanderStats[commander.name]) {
-                        commanderStats[commander.name] = { wins: 0, total: 0 };
+                        commanderStats[commander.name] = { wins: 0, total: 0, themeCounts: {} };
                     }
+                    if (!commanderStats[commander.name].themeCounts) {
+                        commanderStats[commander.name].themeCounts = {};
+                    }
+
                     commanderStats[commander.name].total += 1;
                     
                     if (isWinner) {
                         commanderStats[commander.name].wins += 1;
                     }
+
+                    // Track theme usage per commander
+                    const primary = commander.themePrimary || commander.theme;
+                    const secondary = commander.themeSecondary;
+                    if (primary) {
+                        // Create a safe key for the theme combination
+                        // Using a pipe separator is cleaner for MongoDB keys than JSON string
+                        const themeKey = secondary ? `${primary}|${secondary}` : primary;
+                        
+                        if (!commanderStats[commander.name].themeCounts[themeKey]) {
+                            commanderStats[commander.name].themeCounts[themeKey] = {
+                                primary: primary,
+                                secondary: secondary || '',
+                                count: 0
+                            };
+                        }
+                        commanderStats[commander.name].themeCounts[themeKey].count += 1;
+                    }
+                    
+                    updateData.commanderStats = commanderStats;
                     
                     // Atualizar estatísticas do partner (se existir)
                     if (commander.partnerPlayerId) {
