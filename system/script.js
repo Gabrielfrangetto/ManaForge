@@ -2270,8 +2270,7 @@ class MagicGameSystem {
                         commanderUsage[commanderKey] = {
                             name: playerCommander.name,
                             mainName: playerCommander.name,
-                            theme: playerCommander.themePrimary || playerCommander.theme,
-                            themeSecondary: playerCommander.themeSecondary,
+                            themeCounts: {},
                             total: 0,
                             wins: 0
                         };
@@ -2283,20 +2282,50 @@ class MagicGameSystem {
                         commanderUsage[commanderKey].wins++;
                     }
                     
-                    if (!commanderUsage[commanderKey].theme && (playerCommander.themePrimary || playerCommander.theme)) {
-                        commanderUsage[commanderKey].theme = playerCommander.themePrimary || playerCommander.theme;
-                        commanderUsage[commanderKey].themeSecondary = playerCommander.themeSecondary;
+                    // Rastrear frequência de temas
+                    const primary = playerCommander.themePrimary || playerCommander.theme;
+                    const secondary = playerCommander.themeSecondary;
+                    
+                    if (primary) {
+                        const themeKey = JSON.stringify({p: primary, s: secondary || ''});
+                        
+                        if (!commanderUsage[commanderKey].themeCounts[themeKey]) {
+                            commanderUsage[commanderKey].themeCounts[themeKey] = {
+                                primary: primary,
+                                secondary: secondary,
+                                count: 0
+                            };
+                        }
+                        commanderUsage[commanderKey].themeCounts[themeKey].count++;
                     }
                 }
             }
         });
         
         const commanderArray = Object.values(commanderUsage)
+            .map(commander => {
+                // Determinar o tema mais frequente
+                let mostFrequentTheme = null;
+                let maxCount = -1;
+                
+                Object.values(commander.themeCounts).forEach(themeData => {
+                    if (themeData.count > maxCount) {
+                        maxCount = themeData.count;
+                        mostFrequentTheme = themeData;
+                    }
+                });
+                
+                return {
+                    name: commander.name,
+                    mainName: commander.mainName,
+                    theme: mostFrequentTheme ? mostFrequentTheme.primary : 'Tema não informado',
+                    themeSecondary: mostFrequentTheme ? mostFrequentTheme.secondary : '',
+                    total: commander.total,
+                    wins: commander.wins,
+                    winrate: commander.total > 0 ? Math.round((commander.wins / commander.total) * 100) : 0
+                };
+            })
             .filter(commander => commander.total > 0)
-            .map(commander => ({
-                ...commander,
-                winrate: Math.round((commander.wins / commander.total) * 100)
-            }))
             .sort((a, b) => {
                 if (b.total !== a.total) {
                     return b.total - a.total;
