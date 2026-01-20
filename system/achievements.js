@@ -747,9 +747,14 @@ class AchievementSystem {
             serverAchievements.forEach(serverAch => {
                 const localAch = this.achievements.find(a => a.id === serverAch.achievementId);
                 if (localAch) {
-                    localAch.unlocked = true;
-                    localAch.progress = localAch.maxProgress;
-                    localAch.unlockedAt = serverAch.unlockedAt; // Armazenar data de desbloqueio
+                    if (serverAch.unlockedAt) {
+                        localAch.unlocked = true;
+                        localAch.progress = localAch.maxProgress;
+                        localAch.unlockedAt = serverAch.unlockedAt; // Armazenar data de desbloqueio
+                    } else {
+                        // Se não está desbloqueado, apenas atualiza o progresso
+                        localAch.progress = serverAch.progress || 0;
+                    }
                 }
             });
             
