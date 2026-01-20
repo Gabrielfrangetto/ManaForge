@@ -1196,8 +1196,15 @@ app.post('/api/matches/multiplayer', async (req, res) => {
                     updateData.xpToNext = xpToNext;
                     
                     // NOVO: Sistema de Manacoins
-                    // Vencedor recebe 50 Manacoins, demais participantes recebem 25
-                    const manaCoinsReward = isWinner ? 50 : 25;
+                    // 1º: 50, 2º: 35, 3º: 25, 4º: 20
+                    let manaCoinsReward = 20; // Padrão
+                    
+                    if (playerPosition === 1) manaCoinsReward = 50;
+                    else if (playerPosition === 2) manaCoinsReward = 35;
+                    else if (playerPosition === 3) manaCoinsReward = 25;
+                    else if (playerPosition === 4) manaCoinsReward = 20;
+                    else if (isWinner) manaCoinsReward = 50; // Fallback
+                    
                     updateData.manaCoins = (player.manaCoins || 0) + manaCoinsReward;
                     
                     // Atualizar estatísticas do comandante
