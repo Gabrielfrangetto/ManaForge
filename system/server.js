@@ -578,7 +578,7 @@ app.get('/api/matches/:playerId', async (req, res) => {
         }
         
         const matches = await Match.find(filter)
-            .sort({ createdAt: -1 })
+            .sort({ date: -1 })
             .limit(parseInt(limit))
             .skip(skip);
             
@@ -1912,10 +1912,10 @@ app.put('/api/players/:id/title', async (req, res) => {
 // Alterar senha do usuário
 app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
     try {
-        const { currentPassword, newPassword } = req.body;
+        const { newPassword } = req.body;
         
-        if (!currentPassword || !newPassword) {
-            return res.status(400).json({ error: 'Senha atual e nova senha são obrigatórias' });
+        if (!newPassword) {
+            return res.status(400).json({ error: 'Nova senha é obrigatória' });
         }
         
         if (newPassword.length < 6) {
@@ -1926,12 +1926,6 @@ app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
         const user = await Player.findById(req.user.userId);
         if (!user) {
             return res.status(404).json({ error: 'Usuário não encontrado' });
-        }
-        
-        // Verificar senha atual
-        const isValidPassword = await bcrypt.compare(currentPassword, user.password);
-        if (!isValidPassword) {
-            return res.status(401).json({ error: 'Senha atual incorreta' });
         }
         
         // Criptografar nova senha

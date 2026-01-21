@@ -5117,7 +5117,6 @@ class MagicGameSystem {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const currentPassword = document.getElementById('currentPassword').value;
                 const newPassword = document.getElementById('newPassword').value;
                 const confirmPassword = document.getElementById('confirmPassword').value;
                 
@@ -5133,7 +5132,7 @@ class MagicGameSystem {
                     return;
                 }
                 
-                const result = await this.changePassword(currentPassword, newPassword);
+                const result = await this.changePassword(newPassword);
                 
                 if (result.success) {
                     this.showSuccessMessage('Senha alterada com sucesso!');
@@ -5305,7 +5304,7 @@ class MagicGameSystem {
         this.showLoginScreen();
     }
 
-    async changePassword(currentPassword, newPassword) {
+    async changePassword(newPassword) {
         try {
             const response = await fetch(`${this.apiUrl}/auth/change-password`, {
                 method: 'PUT',
@@ -5313,7 +5312,7 @@ class MagicGameSystem {
                     'Content-Type': 'application/json'
                 },
                 credentials: 'include',
-                body: JSON.stringify({ currentPassword, newPassword })
+                body: JSON.stringify({ newPassword })
             });
             
             const data = await response.json();
