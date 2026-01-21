@@ -2288,38 +2288,17 @@ body {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-    font-size: 0;
+    font-size: 1.5rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* Setas minimalistas usando CSS */
-.pagination-btn::before {
-    content: '';
-    width: 12px;
-    height: 12px;
-    border: 2px solid currentColor;
-    border-bottom: none;
-    border-right: none;
-    transform: rotate(-45deg);
-    transition: all 0.3s ease;
-}
-
-.pagination-btn:last-child::before {
-    transform: rotate(135deg);
-}
+/* Setas minimalistas removidas para usar caracteres de texto */
+/* .pagination-btn::before { ... } */
 
 .pagination-btn:hover:not(:disabled) {
     background: linear-gradient(135deg, #ff8c00 0%, #ffb347 100%);
     transform: translateY(-2px) scale(1.05);
     box-shadow: 0 6px 20px rgba(255, 140, 0, 0.3);
-}
-
-.pagination-btn:hover:not(:disabled)::before {
-    transform: rotate(-45deg) scale(1.1);
-}
-
-.pagination-btn:last-child:hover:not(:disabled)::before {
-    transform: rotate(135deg) scale(1.1);
 }
 
 .pagination-btn:active:not(:disabled) {
@@ -2333,10 +2312,6 @@ body {
     opacity: 0.4;
     transform: none;
     box-shadow: none;
-}
-
-.pagination-btn:disabled::before {
-    opacity: 0.5;
 }
 
 /* Informações da paginação */
@@ -2831,10 +2806,10 @@ body {
         height: 44px;
     }
     
-    .pagination-btn::before {
+    /* .pagination-btn::before {
         width: 10px;
         height: 10px;
-    }
+    } */
     
     .pagination-info {
         order: -1;
@@ -5038,10 +5013,10 @@ input.selected {
         height: 40px;
     }
     
-    .pagination-btn::before {
+    /* .pagination-btn::before {
         width: 8px;
         height: 8px;
-    }
+    } */
     
     .modal-content {
         width: 98%;
