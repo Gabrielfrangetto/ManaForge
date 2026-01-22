@@ -3443,6 +3443,15 @@ class MagicGameSystem {
             this.setupFeaturedModalEventDelegation();
             this.featuredModalListenersSetup = true;
         }
+
+        // Inicializar conjunto temporário de IDs selecionados
+        try {
+            const currentIds = await this.achievementSystem.getFeaturedAchievements(this.currentPlayerId);
+            this.tempFeaturedIds = new Set(currentIds);
+        } catch (error) {
+            console.error('Erro ao carregar destaques iniciais:', error);
+            this.tempFeaturedIds = new Set();
+        }
         
         // Mostrar modal com skeleton loading
         modal.style.display = 'block';
@@ -3466,6 +3475,7 @@ class MagicGameSystem {
             if (searchInput) searchInput.value = '';
             // Reset pagination
             this.featuredModalCurrentPage = 0;
+            this.tempFeaturedIds = null; // Limpar memória
         };
         
         if (saveBtn) {
@@ -3521,8 +3531,8 @@ class MagicGameSystem {
             );
         }
         
-        // Usar a API do servidor em vez do localStorage
-        const currentFeaturedIds = await this.achievementSystem.getFeaturedAchievements(this.currentPlayerId);
+        // Usar o conjunto temporário em memória
+        const currentFeaturedIds = Array.from(this.tempFeaturedIds || []);
         
         // Limpar grid apenas se for a primeira página
         if (this.featuredModalCurrentPage === 0) {
@@ -3661,9 +3671,8 @@ class MagicGameSystem {
             
             // Se clicou no card, simula clique no checkbox
             const currentlySelected = checkbox.checked;
-            const selectedCount = grid.querySelectorAll('input[type="checkbox"]:checked').length;
             
-            if (!currentlySelected && selectedCount >= 5) {
+            if (!currentlySelected && this.tempFeaturedIds.size >= 5) {
                 this.showErrorMessage('Máximo de 5 conquistas em destaque permitidas!');
                 return;
             }
@@ -3677,13 +3686,17 @@ class MagicGameSystem {
     }
 
     handleFeaturedSelection(checkbox, selectionItem) {
-        const grid = document.getElementById('featuredSelectionGrid');
-        const selectedCount = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+        const achievementId = selectionItem.dataset.achievementId;
         
-        if (checkbox.checked && selectedCount > 5) {
-            checkbox.checked = false;
-            this.showErrorMessage('Máximo de 5 conquistas em destaque permitidas!');
-            return;
+        if (checkbox.checked) {
+            if (this.tempFeaturedIds.size >= 5 && !this.tempFeaturedIds.has(achievementId)) {
+                checkbox.checked = false;
+                this.showErrorMessage('Máximo de 5 conquistas em destaque permitidas!');
+                return;
+            }
+            this.tempFeaturedIds.add(achievementId);
+        } else {
+            this.tempFeaturedIds.delete(achievementId);
         }
         
         selectionItem.classList.toggle('selected', checkbox.checked);
@@ -3709,8 +3722,7 @@ class MagicGameSystem {
         const grid = document.getElementById('featuredSelectionGrid');
         if (!grid) return;
         
-        const selectedIds = Array.from(grid.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(checkbox => checkbox.id.replace('featured_', ''));
+        const selectedIds = Array.from(this.tempFeaturedIds);
         
         // Usar a API do servidor em vez do localStorage
         const success = await this.achievementSystem.setFeaturedAchievements(this.currentPlayerId, selectedIds);
