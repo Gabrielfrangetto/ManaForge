@@ -3323,12 +3323,12 @@ class MagicGameSystem {
         const archenemySection = document.getElementById('archenemySection');
         
         if (archenemyContainer && archenemySection) {
+            archenemySection.style.display = 'block';
             if (match.archenemy) {
-                archenemySection.style.display = 'block';
                 const archenemyName = this.getPlayerNameById(match.archenemy) || 'Jogador não encontrado';
                 archenemyContainer.textContent = archenemyName;
             } else {
-                archenemySection.style.display = 'none';
+                archenemyContainer.textContent = 'Nenhum';
             }
         }
 
