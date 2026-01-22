@@ -2435,15 +2435,38 @@ class MagicGameSystem {
 
     // Função auxiliar para obter URL da imagem da carta
     async getCardImageUrl(cardName) {
+        // 1. Tentar busca via API do servidor (Cache + Scryfall robusto)
         try {
-            const response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
+            const response = await fetch(`/api/cards/search/${encodeURIComponent(cardName)}`);
+            if (response.ok) {
+                const cards = await response.json();
+                if (Array.isArray(cards) && cards.length > 0) {
+                    const card = cards[0];
+                    return card.imageUrl || card.smallImageUrl || 'https://via.placeholder.com/120x168/4a5568/ffffff?text=Card';
+                }
+            }
+        } catch (error) {
+            console.warn(`Erro ao buscar imagem via API para "${cardName}":`, error);
+        }
+
+        // 2. Fallback: Tentar Scryfall direto (Fuzzy search é mais tolerante)
+        try {
+            // Tenta fuzzy search diretamente pois exact falha com nomes incompletos/errados
+            const response = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
             if (response.ok) {
                 const cardData = await response.json();
+                
+                // Suporte para cartas de duas faces (ex: MDFC, Transform)
+                if (!cardData.image_uris && cardData.card_faces && cardData.card_faces[0].image_uris) {
+                    return cardData.card_faces[0].image_uris.normal || cardData.card_faces[0].image_uris.large;
+                }
+
                 return cardData.image_uris?.normal || cardData.image_uris?.large || 'https://via.placeholder.com/120x168/4a5568/ffffff?text=Card';
             }
         } catch (error) {
-            console.error('Erro ao buscar imagem da carta:', error);
+            console.error('Erro ao buscar imagem da carta (fallback Scryfall):', error);
         }
+
         return 'https://via.placeholder.com/120x168/4a5568/ffffff?text=Card';
     }
 
